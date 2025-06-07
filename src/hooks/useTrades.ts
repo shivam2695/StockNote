@@ -1,61 +1,37 @@
 import { useState, useEffect } from 'react';
 import { Trade, TradeStats } from '../types/Trade';
 
-export function useTrades() {
+export function useTrades(userEmail?: string) {
   const [trades, setTrades] = useState<Trade[]>([]);
+
+  // Create user-specific storage key
+  const getStorageKey = () => {
+    if (!userEmail) return 'stockRecordsTrades';
+    return `stockRecordsTrades_${userEmail}`;
+  };
 
   // Load trades from localStorage on component mount
   useEffect(() => {
-    const savedTrades = localStorage.getItem('stockRecordsTrades');
+    if (!userEmail) return;
+    
+    const storageKey = getStorageKey();
+    const savedTrades = localStorage.getItem(storageKey);
+    
     if (savedTrades) {
       setTrades(JSON.parse(savedTrades));
     } else {
-      // Add some sample data for demonstration with Indian stock symbols and INR prices
-      const sampleTrades: Trade[] = [
-        {
-          id: '1',
-          symbol: 'RELIANCE',
-          type: 'BUY',
-          entryPrice: 2450.00,
-          exitPrice: 2680.00,
-          quantity: 100,
-          entryDate: '2024-01-15',
-          exitDate: '2024-02-20',
-          status: 'CLOSED',
-          notes: 'Strong quarterly results expected'
-        },
-        {
-          id: '2',
-          symbol: 'TCS',
-          type: 'BUY',
-          entryPrice: 3850.00,
-          quantity: 50,
-          entryDate: '2024-02-01',
-          status: 'ACTIVE',
-          notes: 'Long-term IT sector play'
-        },
-        {
-          id: '3',
-          symbol: 'HDFC',
-          type: 'BUY',
-          entryPrice: 1650.00,
-          exitPrice: 1580.00,
-          quantity: 75,
-          entryDate: '2024-01-10',
-          exitDate: '2024-01-25',
-          status: 'CLOSED',
-          notes: 'Stop loss triggered due to banking sector concerns'
-        }
-      ];
-      setTrades(sampleTrades);
-      localStorage.setItem('stockRecordsTrades', JSON.stringify(sampleTrades));
+      // Initialize with empty array for new users
+      setTrades([]);
     }
-  }, []);
+  }, [userEmail]);
 
   // Save trades to localStorage whenever trades change
   useEffect(() => {
-    localStorage.setItem('stockRecordsTrades', JSON.stringify(trades));
-  }, [trades]);
+    if (!userEmail) return;
+    
+    const storageKey = getStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(trades));
+  }, [trades, userEmail]);
 
   const addTrade = (tradeData: Omit<Trade, 'id'>) => {
     const newTrade: Trade = {

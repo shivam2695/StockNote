@@ -18,8 +18,13 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-gray-700">
-              <User className="h-5 w-5" />
-              <span className="text-sm font-medium">{user.email}</span>
+              <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                <User className="h-4 w-4 text-indigo-600" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{user.name}</span>
+                <span className="text-xs text-gray-500">{user.email}</span>
+              </div>
             </div>
             
             <button

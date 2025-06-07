@@ -39,12 +39,20 @@ export const useAuth = () => {
       isAuthenticated: false,
       user: null,
     });
+    // Clear auth state but keep user-specific data
     localStorage.removeItem('authState');
+  };
+
+  const clearUserData = (userEmail: string) => {
+    // Clear all user-specific data when needed
+    localStorage.removeItem(`stockRecordsTrades_${userEmail}`);
+    localStorage.removeItem(`stockRecordsFocusStocks_${userEmail}`);
   };
 
   return {
     ...authState,
     login,
     logout,
+    clearUserData,
   };
 };

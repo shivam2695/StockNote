@@ -19,6 +19,7 @@ function App() {
   
   const { isAuthenticated, user, login, logout } = useAuth();
   
+  // Pass user email to hooks for user-specific data
   const { 
     trades, 
     addTrade, 
@@ -26,7 +27,7 @@ function App() {
     deleteTrade, 
     calculateStats,
     getTradesByMonth 
-  } = useTrades();
+  } = useTrades(user?.email);
 
   const {
     focusStocks,
@@ -34,7 +35,7 @@ function App() {
     updateFocusStock,
     deleteFocusStock,
     markTradeTaken
-  } = useFocusStocks();
+  } = useFocusStocks(user?.email);
 
   const stats = calculateStats();
 

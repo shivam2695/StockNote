@@ -1,58 +1,37 @@
 import { useState, useEffect } from 'react';
 import { FocusStock } from '../types/FocusStock';
 
-export function useFocusStocks() {
+export function useFocusStocks(userEmail?: string) {
   const [focusStocks, setFocusStocks] = useState<FocusStock[]>([]);
+
+  // Create user-specific storage key
+  const getStorageKey = () => {
+    if (!userEmail) return 'stockRecordsFocusStocks';
+    return `stockRecordsFocusStocks_${userEmail}`;
+  };
 
   // Load focus stocks from localStorage on component mount
   useEffect(() => {
-    const savedFocusStocks = localStorage.getItem('stockRecordsFocusStocks');
+    if (!userEmail) return;
+    
+    const storageKey = getStorageKey();
+    const savedFocusStocks = localStorage.getItem(storageKey);
+    
     if (savedFocusStocks) {
       setFocusStocks(JSON.parse(savedFocusStocks));
     } else {
-      // Add some sample data for demonstration
-      const sampleFocusStocks: FocusStock[] = [
-        {
-          id: '1',
-          symbol: 'INFY',
-          targetPrice: 1850.00,
-          currentPrice: 1780.00,
-          reason: 'Strong technical breakout expected',
-          dateAdded: '2024-12-01',
-          tradeTaken: false,
-          notes: 'Wait for volume confirmation'
-        },
-        {
-          id: '2',
-          symbol: 'WIPRO',
-          targetPrice: 650.00,
-          currentPrice: 620.00,
-          reason: 'Oversold on RSI, good support level',
-          dateAdded: '2024-11-28',
-          tradeTaken: true,
-          tradeDate: '2024-12-02',
-          notes: 'Entered at ₹625'
-        },
-        {
-          id: '3',
-          symbol: 'ICICIBANK',
-          targetPrice: 1250.00,
-          currentPrice: 1180.00,
-          reason: 'Banking sector recovery play',
-          dateAdded: '2024-11-25',
-          tradeTaken: false,
-          notes: 'Monitor quarterly results'
-        }
-      ];
-      setFocusStocks(sampleFocusStocks);
-      localStorage.setItem('stockRecordsFocusStocks', JSON.stringify(sampleFocusStocks));
+      // Initialize with empty array for new users
+      setFocusStocks([]);
     }
-  }, []);
+  }, [userEmail]);
 
   // Save focus stocks to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('stockRecordsFocusStocks', JSON.stringify(focusStocks));
-  }, [focusStocks]);
+    if (!userEmail) return;
+    
+    const storageKey = getStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(focusStocks));
+  }, [focusStocks, userEmail]);
 
   const addFocusStock = (stockData: Omit<FocusStock, 'id'>) => {
     const newStock: FocusStock = {
