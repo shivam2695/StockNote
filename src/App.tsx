@@ -4,8 +4,11 @@ import Dashboard from './components/Dashboard';
 import TradeTable from './components/TradeTable';
 import TradeModal from './components/TradeModal';
 import FocusStocks from './components/FocusStocks';
+import LoginForm from './components/LoginForm';
+import Header from './components/Header';
 import { useTrades } from './hooks/useTrades';
 import { useFocusStocks } from './hooks/useFocusStocks';
+import { useAuth } from './hooks/useAuth';
 import { Trade } from './types/Trade';
 import { PlusCircle } from 'lucide-react';
 
@@ -13,6 +16,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
+  
+  const { isAuthenticated, user, login, logout } = useAuth();
   
   const { 
     trades, 
@@ -32,6 +37,11 @@ function App() {
   } = useFocusStocks();
 
   const stats = calculateStats();
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={login} />;
+  }
 
   const handleEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
@@ -134,8 +144,11 @@ function App() {
     <div className="bg-gray-50 min-h-screen">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
       
-      <div className="ml-64 p-8">
-        {renderContent()}
+      <div className="ml-64">
+        <Header user={user!} onLogout={logout} />
+        <div className="p-8">
+          {renderContent()}
+        </div>
       </div>
 
       <TradeModal
