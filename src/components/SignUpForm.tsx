@@ -1,23 +1,29 @@
 import React, { useState } from 'react';
-import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 
-interface LoginFormProps {
-  onLogin: (email: string, password: string) => void;
-  onSwitchToSignUp: () => void;
+interface SignUpFormProps {
+  onSignUp: (name: string, email: string, password: string) => void;
+  onSwitchToLogin: () => void;
 }
 
-export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps) {
+export default function SignUpForm({ onSignUp, onSwitchToLogin }: SignUpFormProps) {
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required';
+    }
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
@@ -27,6 +33,12 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
     setErrors(newErrors);
@@ -40,7 +52,7 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
     
     setIsLoading(true);
     try {
-      await onLogin(formData.email.trim(), formData.password);
+      await onSignUp(formData.name.trim(), formData.email.trim(), formData.password);
     } finally {
       setIsLoading(false);
     }
@@ -61,13 +73,13 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
           <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-purple-600 rounded-3xl transform rotate-6 opacity-20"></div>
           <div className="relative bg-white rounded-3xl p-12 shadow-2xl">
             <div className="w-64 h-64 bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl flex items-center justify-center">
-              <LogIn className="w-32 h-32 text-white" />
+              <UserPlus className="w-32 h-32 text-white" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right side - Login form */}
+      {/* Right side - Sign up form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           {/* Header */}
@@ -79,28 +91,48 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
                 className="h-16 w-auto"
               />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your StockNote account</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+            <p className="text-gray-600">Join StockNote and start tracking your trades</p>
           </div>
 
           {/* Navigation */}
           <div className="flex mb-8 bg-gray-100 rounded-lg p-1">
             <button
               type="button"
-              onClick={onSwitchToSignUp}
-              className="flex-1 py-2 px-4 text-center rounded-md text-gray-600 hover:text-gray-900 font-medium transition-colors"
+              className="flex-1 py-2 px-4 text-center rounded-md bg-purple-600 text-white font-medium transition-colors"
             >
               SIGN UP
             </button>
             <button
               type="button"
-              className="flex-1 py-2 px-4 text-center rounded-md bg-purple-600 text-white font-medium transition-colors"
+              onClick={onSwitchToLogin}
+              className="flex-1 py-2 px-4 text-center rounded-md text-gray-600 hover:text-gray-900 font-medium transition-colors"
             >
               LOG IN
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
+                    errors.name ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your full name"
+                />
+              </div>
+              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -148,25 +180,31 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  id="remember-me"
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
+                    errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Confirm your password"
                 />
-                <label htmlFor="remember-me" className="ml-2 text-sm text-gray-600">
-                  Remember Me
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
-              <button
-                type="button"
-                className="text-sm text-purple-600 hover:text-purple-500"
-              >
-                Forgot Password?
-              </button>
+              {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
             </div>
 
             <button
@@ -174,17 +212,17 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
               disabled={isLoading}
               className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Signing in...' : 'Log in'}
+              {isLoading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <span className="text-gray-600">Don't have an account? </span>
+            <span className="text-gray-600">Already have an account? </span>
             <button
-              onClick={onSwitchToSignUp}
+              onClick={onSwitchToLogin}
               className="text-purple-600 hover:text-purple-500 font-medium"
             >
-              Sign up
+              Log in
             </button>
           </div>
         </div>

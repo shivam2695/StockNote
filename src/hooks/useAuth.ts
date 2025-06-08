@@ -26,11 +26,41 @@ export const useAuth = () => {
     localStorage.setItem('authState', JSON.stringify(authState));
   }, [authState]);
 
-  const login = (email: string, name: string) => {
+  const signUp = (name: string, email: string, password: string) => {
+    // Check if user already exists
+    const existingUsers = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
+    const userExists = existingUsers.find((user: any) => user.email === email);
+    
+    if (userExists) {
+      throw new Error('User with this email already exists');
+    }
+
+    // Create new user
+    const newUser = { name, email, password };
+    const updatedUsers = [...existingUsers, newUser];
+    localStorage.setItem('stockNoteUsers', JSON.stringify(updatedUsers));
+
+    // Auto-login after signup
     const user: User = { email, name };
     setAuthState({
       isAuthenticated: true,
       user,
+    });
+  };
+
+  const login = (email: string, password: string) => {
+    // Check credentials
+    const existingUsers = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
+    const user = existingUsers.find((u: any) => u.email === email && u.password === password);
+    
+    if (!user) {
+      throw new Error('Invalid email or password');
+    }
+
+    const authenticatedUser: User = { email: user.email, name: user.name };
+    setAuthState({
+      isAuthenticated: true,
+      user: authenticatedUser,
     });
   };
 
@@ -51,6 +81,7 @@ export const useAuth = () => {
 
   return {
     ...authState,
+    signUp,
     login,
     logout,
     clearUserData,

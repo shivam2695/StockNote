@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import TradeTable from './components/TradeTable';
 import TradeModal from './components/TradeModal';
 import FocusStocks from './components/FocusStocks';
-import LoginForm from './components/LoginForm';
+import AuthContainer from './components/AuthContainer';
 import Header from './components/Header';
 import { useTrades } from './hooks/useTrades';
 import { useFocusStocks } from './hooks/useFocusStocks';
@@ -17,7 +17,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
   
-  const { isAuthenticated, user, login, logout } = useAuth();
+  const { isAuthenticated, user, login, logout, signUp } = useAuth();
   
   // Pass user email to hooks for user-specific data
   const { 
@@ -39,9 +39,9 @@ function App() {
 
   const stats = calculateStats();
 
-  // Show login form if not authenticated
+  // Show auth container if not authenticated
   if (!isAuthenticated) {
-    return <LoginForm onLogin={login} />;
+    return <AuthContainer onLogin={login} onSignUp={signUp} />;
   }
 
   const handleEditTrade = (trade: Trade) => {

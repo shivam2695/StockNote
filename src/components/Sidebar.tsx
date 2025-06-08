@@ -20,12 +20,14 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     <div className="bg-gray-900 text-white h-screen w-64 fixed left-0 top-0 z-10">
       <div className="p-6">
         <div className="flex items-center space-x-3 mb-8">
-          <div className="bg-blue-500 p-2 rounded-lg">
-            <TrendingUp className="w-6 h-6" />
-          </div>
+          <img 
+            src="/Black White Minimalist Fierce Bull Logo.png" 
+            alt="StockNote Logo" 
+            className="h-10 w-auto"
+          />
           <div>
-            <h1 className="text-xl font-bold">Stock Records</h1>
-            <p className="text-sm text-gray-400">Trading Journal</p>
+            <h1 className="text-xl font-bold">StockNote</h1>
+            <p className="text-sm text-gray-400">Log. Analyze. Grow.</p>
           </div>
         </div>
 
