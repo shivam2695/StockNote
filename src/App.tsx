@@ -6,6 +6,7 @@ import TradeModal from './components/TradeModal';
 import FocusStocks from './components/FocusStocks';
 import AuthContainer from './components/AuthContainer';
 import Header from './components/Header';
+import WelcomeModal from './components/WelcomeModal';
 import { useTrades } from './hooks/useTrades';
 import { useFocusStocks } from './hooks/useFocusStocks';
 import { useAuth } from './hooks/useAuth';
@@ -16,6 +17,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   
   const { isAuthenticated, user, login, logout, signUp } = useAuth();
   
@@ -41,7 +43,17 @@ function App() {
 
   // Show auth container if not authenticated
   if (!isAuthenticated) {
-    return <AuthContainer onLogin={login} onSignUp={signUp} />;
+    return <AuthContainer onLogin={handleLogin} onSignUp={handleSignUp} />;
+  }
+
+  async function handleLogin(email: string, password: string) {
+    await login(email, password);
+    setShowWelcomeModal(true);
+  }
+
+  async function handleSignUp(name: string, email: string, password: string) {
+    await signUp(name, email, password);
+    setShowWelcomeModal(true);
   }
 
   const handleEditTrade = (trade: Trade) => {
@@ -157,6 +169,12 @@ function App() {
         onClose={handleCloseModal}
         onSave={handleSaveTrade}
         trade={editingTrade}
+      />
+
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        userName={user?.name || ''}
       />
     </div>
   );

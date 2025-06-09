@@ -4,9 +4,10 @@ import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
   onSwitchToSignUp: () => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps) {
+export default function LoginForm({ onLogin, onSwitchToSignUp, onForgotPassword }: LoginFormProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -163,6 +164,7 @@ export default function LoginForm({ onLogin, onSwitchToSignUp }: LoginFormProps)
               </div>
               <button
                 type="button"
+                onClick={onForgotPassword}
                 className="text-sm text-purple-600 hover:text-purple-500"
               >
                 Forgot Password?
