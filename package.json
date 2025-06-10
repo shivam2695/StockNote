@@ -1,8 +1,9 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "stocknote-trading-journal",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "A comprehensive trading journal application for tracking trades and focus stocks",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
