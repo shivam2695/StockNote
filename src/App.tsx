@@ -7,6 +7,7 @@ import FocusStocks from './components/FocusStocks';
 import AuthContainer from './components/AuthContainer';
 import Header from './components/Header';
 import WelcomeModal from './components/WelcomeModal';
+import HealthCheck from './components/HealthCheck';
 import { useTrades } from './hooks/useTrades';
 import { useFocusStocks } from './hooks/useFocusStocks';
 import { useAuth } from './hooks/useAuth';
@@ -44,7 +45,12 @@ function App() {
 
   // Show auth container if not authenticated
   if (!isAuthenticated) {
-    return <AuthContainer onLogin={handleLogin} onSignUp={handleSignUp} />;
+    return (
+      <>
+        <AuthContainer onLogin={handleLogin} onSignUp={handleSignUp} />
+        <HealthCheck />
+      </>
+    );
   }
 
   async function handleLogin(email: string, password: string) {
@@ -186,6 +192,9 @@ function App() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
+      {/* Health Check Component */}
+      <HealthCheck />
+
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
