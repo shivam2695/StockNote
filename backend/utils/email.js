@@ -1,14 +1,17 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter
+// Create transporter with correct method name
 const createTransporter = () => {
-  return nodemailer.createTransporter({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT) || 587,
     secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false
     }
   });
 };
@@ -17,6 +20,10 @@ const createTransporter = () => {
 const sendVerificationEmail = async (email, token) => {
   try {
     const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    await transporter.verify();
+    console.log('SMTP server is ready to take our messages');
     
     const mailOptions = {
       from: `"StockNote" <${process.env.EMAIL_USER}>`,
@@ -54,8 +61,9 @@ const sendVerificationEmail = async (email, token) => {
       `
     };
     
-    await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${email}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${email}:`, info.messageId);
+    return info;
   } catch (error) {
     console.error('Error sending verification email:', error);
     throw error;
@@ -66,6 +74,9 @@ const sendVerificationEmail = async (email, token) => {
 const sendPasswordResetEmail = async (email, token) => {
   try {
     const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    await transporter.verify();
     
     const mailOptions = {
       from: `"StockNote" <${process.env.EMAIL_USER}>`,
@@ -103,15 +114,30 @@ const sendPasswordResetEmail = async (email, token) => {
       `
     };
     
-    await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${email}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${email}:`, info.messageId);
+    return info;
   } catch (error) {
     console.error('Error sending password reset email:', error);
     throw error;
   }
 };
 
+// Test email configuration
+const testEmailConfig = async () => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+    console.log('✅ Email configuration is valid');
+    return true;
+  } catch (error) {
+    console.error('❌ Email configuration error:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  testEmailConfig
 };

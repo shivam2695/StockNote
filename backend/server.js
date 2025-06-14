@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const { testEmailConfig } = require('./utils/email');
 require('dotenv').config();
 
 // Import routes
@@ -77,6 +78,20 @@ const connectDB = async () => {
 
 connectDB();
 
+// Test email configuration on startup
+testEmailConfig().then(isValid => {
+  if (isValid) {
+    console.log('✅ Email service is ready');
+  } else {
+    console.log('⚠️  Email service configuration needs attention');
+    console.log('Required environment variables:');
+    console.log('- EMAIL_HOST (default: smtp.gmail.com)');
+    console.log('- EMAIL_PORT (default: 587)');
+    console.log('- EMAIL_USER (your Gmail address)');
+    console.log('- EMAIL_PASS (your Gmail app password)');
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -84,7 +99,12 @@ app.get('/health', (req, res) => {
     message: 'StockNote Backend is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '2.0.0'
+    version: '2.0.0',
+    email: {
+      configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: process.env.EMAIL_PORT || 587
+    }
   });
 });
 

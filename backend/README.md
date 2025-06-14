@@ -8,7 +8,7 @@ A comprehensive REST API for the StockNote Trading Journal application built wit
 
 #### 1. **Users**
 - User authentication and profile management
-- Email verification system
+- Email verification system with OTP
 - Password reset functionality
 - User activity tracking
 
@@ -51,6 +51,7 @@ A comprehensive REST API for the StockNote Trading Journal application built wit
 - Input validation and sanitization
 - CORS configuration
 - Security headers with Helmet
+- Email verification enforcement
 
 ### 📊 Analytics & Reporting
 - User trading statistics
@@ -64,7 +65,7 @@ A comprehensive REST API for the StockNote Trading Journal application built wit
 
 - Node.js (v16 or higher)
 - MongoDB (local or cloud)
-- Email service (Gmail, SendGrid, etc.)
+- Gmail account with App Password for email service
 
 ## 🛠️ Installation
 
@@ -85,18 +86,29 @@ cp .env.example .env
 ```
 
 4. **Configure environment variables**
+
+### Required Email Configuration for Gmail:
+
+1. **Enable 2-Factor Authentication** on your Gmail account
+2. **Generate App Password**:
+   - Go to Google Account settings
+   - Security → 2-Step Verification → App passwords
+   - Generate a new app password for "Mail"
+   - Use this 16-character password (not your regular Gmail password)
+
+3. **Update .env file**:
 ```env
 # Database
 MONGODB_URI=mongodb://localhost:27017/stocknote
 
 # JWT Secret
-JWT_SECRET=your-super-secret-jwt-key-here
+JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
 
-# Email Configuration
+# Email Configuration (REQUIRED for email verification)
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
-EMAIL_PASS=your-app-password
+EMAIL_PASS=your-16-character-app-password
 
 # Server Configuration
 NODE_ENV=development
@@ -113,6 +125,44 @@ npm run dev
 npm start
 ```
 
+## 📧 Email Configuration
+
+### Gmail SMTP Setup
+
+1. **Enable 2-Factor Authentication**
+   - Go to your Google Account
+   - Navigate to Security
+   - Enable 2-Step Verification
+
+2. **Generate App Password**
+   - In Security settings, go to "2-Step Verification"
+   - Scroll down to "App passwords"
+   - Select "Mail" and generate password
+   - Copy the 16-character password
+
+3. **Environment Variables**
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=abcd-efgh-ijkl-mnop  # 16-character app password
+```
+
+### Testing Email Configuration
+
+The server will automatically test email configuration on startup:
+
+```bash
+✅ Email service is ready
+```
+
+If you see an error:
+```bash
+⚠️  Email service configuration needs attention
+```
+
+Check your environment variables and Gmail app password.
+
 ## 📚 API Documentation
 
 ### Base URL
@@ -121,9 +171,9 @@ Development: http://localhost:5000/api
 Production: https://stocknote-backend.onrender.com/api
 ```
 
-### Authentication Endpoints
+### Authentication Flow
 
-#### Register User
+#### 1. Register User
 ```http
 POST /api/auth/signup
 Content-Type: application/json
@@ -135,7 +185,52 @@ Content-Type: application/json
 }
 ```
 
-#### Login
+**Response:**
+```json
+{
+  "success": true,
+  "message": "User registered successfully. Please check your email for verification.",
+  "data": {
+    "user": {
+      "id": "user_id",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "verified": false
+    },
+    "requiresEmailVerification": true
+  }
+}
+```
+
+#### 2. Verify Email
+```http
+POST /api/auth/verify-email
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "token": "123456"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "data": {
+    "token": "jwt_token_here",
+    "user": {
+      "id": "user_id",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "verified": true
+    }
+  }
+}
+```
+
+#### 3. Login (Only for verified users)
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -143,6 +238,43 @@ Content-Type: application/json
 {
   "email": "john@example.com",
   "password": "password123"
+}
+```
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "jwt_token_here",
+    "user": {
+      "id": "user_id",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "verified": true
+    }
+  }
+}
+```
+
+**Unverified User Response:**
+```json
+{
+  "success": false,
+  "message": "Please verify your email before logging in",
+  "requiresEmailVerification": true,
+  "email": "john@example.com"
+}
+```
+
+#### 4. Resend Verification Email
+```http
+POST /api/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
 }
 ```
 
@@ -179,12 +311,6 @@ Content-Type: application/json
 }
 ```
 
-#### Get Journal Statistics
-```http
-GET /api/journal-entries/stats
-Authorization: Bearer <token>
-```
-
 ### Focus Stocks Endpoints
 
 #### Get All Focus Stocks
@@ -210,107 +336,6 @@ Content-Type: application/json
 }
 ```
 
-### Team Endpoints
-
-#### Get User Teams
-```http
-GET /api/teams
-Authorization: Bearer <token>
-```
-
-#### Create Team
-```http
-POST /api/teams
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Alpha Traders",
-  "description": "Professional trading team",
-  "settings": {
-    "isPrivate": false,
-    "allowMemberInvites": true,
-    "requireApproval": false
-  }
-}
-```
-
-#### Add Team Member
-```http
-POST /api/teams/:id/members
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "userEmail": "member@example.com",
-  "role": "member"
-}
-```
-
-### Team Trades Endpoints
-
-#### Get Team Trades
-```http
-GET /api/team-trades/team/:teamId
-Authorization: Bearer <token>
-```
-
-#### Create Team Trade
-```http
-POST /api/team-trades
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "team": "team_id_here",
-  "stockName": "GOOGL",
-  "entryPrice": 2800.00,
-  "entryDate": "2024-01-15",
-  "remarks": "AI momentum play",
-  "strategy": "Momentum",
-  "riskLevel": "medium",
-  "targetPrice": 3000.00,
-  "stopLoss": 2700.00
-}
-```
-
-#### Vote on Team Trade
-```http
-POST /api/team-trades/:id/vote
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "vote": "buy",
-  "comment": "Strong technical indicators"
-}
-```
-
-### Books Endpoints
-
-#### Get All Books
-```http
-GET /api/books
-Query Parameters:
-- page: Page number
-- limit: Items per page
-- genre: Filter by genre
-- minRating: Minimum rating filter
-- search: Search query
-```
-
-#### Rate a Book
-```http
-POST /api/books/:id/rate
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "rating": 4.5,
-  "review": "Excellent trading strategies"
-}
-```
-
 ## 🗃️ Database Schema
 
 ### User Model
@@ -320,136 +345,12 @@ Content-Type: application/json
   name: String (required),
   password: String (hashed, required),
   verified: Boolean (default: false),
+  emailVerificationToken: String,
+  emailVerificationExpires: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
   lastLogin: Date,
   isActive: Boolean (default: true),
-  timestamps: true
-}
-```
-
-### Journal Entry Model
-```javascript
-{
-  user: ObjectId (ref: User, required),
-  stockName: String (required, uppercase),
-  entryPrice: Number (required, min: 0),
-  entryDate: Date (required),
-  currentPrice: Number (required, min: 0),
-  pnl: Number (calculated),
-  pnlPercentage: Number (calculated),
-  status: String (enum: ['open', 'closed']),
-  remarks: String (max: 500),
-  isTeamTrade: Boolean (default: false),
-  month: String (auto-generated),
-  year: Number (auto-generated),
-  quantity: Number (default: 1),
-  exitPrice: Number,
-  exitDate: Date,
-  timestamps: true
-}
-```
-
-### Focus Stock Model
-```javascript
-{
-  user: ObjectId (ref: User, required),
-  stockName: String (required, uppercase),
-  entryPrice: Number (required, min: 0),
-  targetPrice: Number (required, min: 0),
-  stopLossPrice: Number (required, min: 0),
-  currentPrice: Number (required, min: 0),
-  status: String (enum: ['green', 'red', 'neutral']),
-  month: String (auto-generated),
-  year: Number (auto-generated),
-  reason: String (max: 200),
-  tradeTaken: Boolean (default: false),
-  tradeDate: Date,
-  notes: String (max: 500),
-  potentialReturn: Number (calculated),
-  potentialReturnPercentage: Number (calculated),
-  riskRewardRatio: Number (calculated),
-  timestamps: true
-}
-```
-
-### Team Model
-```javascript
-{
-  name: String (required, unique),
-  description: String (max: 500),
-  members: [{
-    user: ObjectId (ref: User),
-    role: String (enum: ['admin', 'member', 'viewer']),
-    joinedAt: Date,
-    isActive: Boolean
-  }],
-  createdBy: ObjectId (ref: User, required),
-  isActive: Boolean (default: true),
-  settings: {
-    isPrivate: Boolean,
-    allowMemberInvites: Boolean,
-    requireApproval: Boolean
-  },
-  stats: {
-    totalTrades: Number,
-    totalPnL: Number,
-    winRate: Number
-  },
-  timestamps: true
-}
-```
-
-### Team Trade Model
-```javascript
-{
-  team: ObjectId (ref: Team, required),
-  stockName: String (required, uppercase),
-  entryPrice: Number (required, min: 0),
-  entryDate: Date (required),
-  remarks: String (max: 500),
-  currentPrice: Number,
-  quantity: Number (default: 1),
-  status: String (enum: ['open', 'closed']),
-  exitPrice: Number,
-  exitDate: Date,
-  pnl: Number (calculated),
-  pnlPercentage: Number (calculated),
-  createdBy: ObjectId (ref: User, required),
-  strategy: String (max: 100),
-  riskLevel: String (enum: ['low', 'medium', 'high']),
-  targetPrice: Number,
-  stopLoss: Number,
-  votes: [{
-    user: ObjectId (ref: User),
-    vote: String (enum: ['buy', 'sell', 'hold']),
-    votedAt: Date,
-    comment: String (max: 200)
-  }],
-  month: String (auto-generated),
-  year: Number (auto-generated),
-  timestamps: true
-}
-```
-
-### Book Model
-```javascript
-{
-  title: String (required, max: 200),
-  summary: String (required, max: 2000),
-  coverImage: String (required),
-  author: String (max: 100),
-  isbn: String (unique, sparse),
-  publishedDate: Date,
-  genre: String (max: 50),
-  rating: Number (min: 0, max: 5),
-  totalRatings: Number (default: 0),
-  isActive: Boolean (default: true),
-  tags: [String],
-  readBy: [{
-    user: ObjectId (ref: User),
-    dateRead: Date,
-    userRating: Number (min: 0, max: 5),
-    userReview: String (max: 1000)
-  }],
   timestamps: true
 }
 ```
@@ -463,8 +364,7 @@ Content-Type: application/json
 
 ### Email Configuration
 1. **Gmail**: Use App Passwords for Gmail SMTP
-2. **SendGrid**: Configure SendGrid API
-3. **Other Providers**: Configure SMTP settings
+2. **Other Providers**: Configure SMTP settings accordingly
 
 ### JWT Configuration
 1. **Secret**: Generate a strong JWT secret
@@ -536,6 +436,7 @@ npm run test:watch
 - **Input Validation**: Express-validator
 - **Password Hashing**: bcryptjs with salt rounds
 - **JWT Authentication**: Secure token-based auth
+- **Email Verification**: Mandatory email verification
 - **MongoDB Injection Protection**: Mongoose sanitization
 
 ## 📈 Performance Features
@@ -543,16 +444,15 @@ npm run test:watch
 - **Database Indexing**: Optimized queries
 - **Pagination**: Efficient data loading
 - **Aggregation Pipelines**: Complex analytics
-- **Caching**: Redis integration ready
-- **Compression**: Response compression
 - **Connection Pooling**: MongoDB connection optimization
+- **Email Configuration Testing**: Startup validation
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests
+4. Test thoroughly
 5. Submit a pull request
 
 ## 📄 License
@@ -567,11 +467,10 @@ For support or questions:
 
 ## 🔄 Version History
 
-- **v2.0.0**: Complete backend with all collections
-  - Journal Entries management
-  - Focus Stocks tracking
-  - Team collaboration features
-  - Book recommendations
+- **v2.0.0**: Complete backend with email verification
+  - Mandatory email verification before login
+  - Fixed nodemailer configuration
   - Enhanced security and validation
   - Comprehensive analytics
   - Team trading with voting system
+  - Gmail SMTP integration
