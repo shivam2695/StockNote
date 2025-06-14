@@ -15,12 +15,14 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     type: 'BUY' as 'BUY' | 'SELL',
     entryPrice: '',
     exitPrice: '',
-    quantity: '',
+    quantity: '1',
     entryDate: '',
     exitDate: '',
     status: 'ACTIVE' as 'ACTIVE' | 'CLOSED',
     notes: ''
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (trade) {
@@ -41,20 +43,60 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         type: 'BUY',
         entryPrice: '',
         exitPrice: '',
-        quantity: '',
+        quantity: '1',
         entryDate: new Date().toISOString().split('T')[0],
         exitDate: '',
         status: 'ACTIVE',
         notes: ''
       });
     }
+    setErrors({});
   }, [trade, isOpen]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.symbol.trim()) {
+      newErrors.symbol = 'Symbol is required';
+    }
+
+    if (!formData.entryPrice || parseFloat(formData.entryPrice) <= 0) {
+      newErrors.entryPrice = 'Entry price must be greater than 0';
+    }
+
+    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
+      newErrors.quantity = 'Quantity must be greater than 0';
+    }
+
+    if (!formData.entryDate) {
+      newErrors.entryDate = 'Entry date is required';
+    }
+
+    if (formData.status === 'CLOSED') {
+      if (!formData.exitPrice || parseFloat(formData.exitPrice) <= 0) {
+        newErrors.exitPrice = 'Exit price is required for closed trades';
+      }
+      if (!formData.exitDate) {
+        newErrors.exitDate = 'Exit date is required for closed trades';
+      }
+      if (formData.exitDate && formData.entryDate && formData.exitDate < formData.entryDate) {
+        newErrors.exitDate = 'Exit date must be after entry date';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!validateForm()) {
+      return;
+    }
+    
     const tradeData: Omit<Trade, 'id'> = {
-      symbol: formData.symbol.toUpperCase(),
+      symbol: formData.symbol.toUpperCase().trim(),
       type: formData.type,
       entryPrice: parseFloat(formData.entryPrice),
       exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
@@ -62,11 +104,18 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
       entryDate: formData.entryDate,
       exitDate: formData.exitDate || undefined,
       status: formData.status,
-      notes: formData.notes || undefined
+      notes: formData.notes.trim() || undefined
     };
 
     onSave(tradeData);
     onClose();
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   if (!isOpen) return null;
@@ -89,16 +138,19 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Symbol
+              Symbol *
             </label>
             <input
               type="text"
               value={formData.symbol}
-              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => handleInputChange('symbol', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.symbol ? 'border-red-500' : 'border-gray-300'
+              }`}
               placeholder="AAPL"
               required
             />
+            {errors.symbol && <p className="mt-1 text-sm text-red-600">{errors.symbol}</p>}
           </div>
 
           <div>
@@ -108,7 +160,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             <div className="flex space-x-2">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, type: 'BUY' })}
+                onClick={() => handleInputChange('type', 'BUY')}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg border transition-colors ${
                   formData.type === 'BUY'
                     ? 'bg-green-50 border-green-500 text-green-700'
@@ -120,7 +172,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, type: 'SELL' })}
+                onClick={() => handleInputChange('type', 'SELL')}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg border transition-colors ${
                   formData.type === 'SELL'
                     ? 'bg-red-50 border-red-500 text-red-700'
@@ -136,44 +188,53 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quantity
+                Quantity *
               </label>
               <input
                 type="number"
                 value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleInputChange('quantity', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.quantity ? 'border-red-500' : 'border-gray-300'
+                }`}
                 min="1"
                 required
               />
+              {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Entry Price
+                Entry Price *
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.entryPrice}
-                onChange={(e) => setFormData({ ...formData, entryPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleInputChange('entryPrice', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.entryPrice ? 'border-red-500' : 'border-gray-300'
+                }`}
                 min="0"
                 required
               />
+              {errors.entryPrice && <p className="mt-1 text-sm text-red-600">{errors.entryPrice}</p>}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Entry Date
+              Entry Date *
             </label>
             <input
               type="date"
               value={formData.entryDate}
-              onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => handleInputChange('entryDate', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.entryDate ? 'border-red-500' : 'border-gray-300'
+              }`}
               required
             />
+            {errors.entryDate && <p className="mt-1 text-sm text-red-600">{errors.entryDate}</p>}
           </div>
 
           <div>
@@ -182,7 +243,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'ACTIVE' | 'CLOSED' })}
+              onChange={(e) => handleInputChange('status', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="ACTIVE">Active</option>
@@ -194,27 +255,33 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exit Price
+                  Exit Price *
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.exitPrice}
-                  onChange={(e) => setFormData({ ...formData, exitPrice: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => handleInputChange('exitPrice', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.exitPrice ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   min="0"
                 />
+                {errors.exitPrice && <p className="mt-1 text-sm text-red-600">{errors.exitPrice}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exit Date
+                  Exit Date *
                 </label>
                 <input
                   type="date"
                   value={formData.exitDate}
-                  onChange={(e) => setFormData({ ...formData, exitDate: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => handleInputChange('exitDate', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    errors.exitDate ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 />
+                {errors.exitDate && <p className="mt-1 text-sm text-red-600">{errors.exitDate}</p>}
               </div>
             </div>
           )}
@@ -225,10 +292,11 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             </label>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
               placeholder="Add any notes about this trade..."
+              maxLength={500}
             />
           </div>
 

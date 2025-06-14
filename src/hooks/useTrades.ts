@@ -53,12 +53,13 @@ export function useTrades(userEmail?: string) {
         stockName: tradeData.symbol,
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
-        currentPrice: tradeData.exitPrice || tradeData.entryPrice,
+        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
         status: tradeData.status.toLowerCase(),
-        remarks: tradeData.notes,
+        remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
-        exitPrice: tradeData.exitPrice,
-        exitDate: tradeData.exitDate
+        exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
+        exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
+        isTeamTrade: false
       };
       
       const response = await apiService.createJournalEntry(entryData);
@@ -79,12 +80,13 @@ export function useTrades(userEmail?: string) {
         stockName: tradeData.symbol,
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
-        currentPrice: tradeData.exitPrice || tradeData.entryPrice,
+        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
         status: tradeData.status.toLowerCase(),
-        remarks: tradeData.notes,
+        remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
-        exitPrice: tradeData.exitPrice,
-        exitDate: tradeData.exitDate
+        exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
+        exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
+        isTeamTrade: false
       };
       
       const response = await apiService.updateJournalEntry(tradeId, entryData);

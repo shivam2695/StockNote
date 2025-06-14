@@ -38,7 +38,11 @@ const validateJournalEntry = [
   body('exitDate')
     .optional()
     .isISO8601()
-    .withMessage('Exit date must be a valid date')
+    .withMessage('Exit date must be a valid date'),
+  body('isTeamTrade')
+    .optional()
+    .isBoolean()
+    .withMessage('isTeamTrade must be a boolean')
 ];
 
 // @route   GET /api/journal-entries
@@ -171,10 +175,28 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       });
     }
 
+    // Validate closed trade requirements
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice) {
+        return res.status(400).json({
+          success: false,
+          message: 'Exit price is required for closed trades'
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Exit date is required for closed trades'
+        });
+      }
+    }
+
     const entryData = {
       ...req.body,
       user: req.user._id,
-      stockName: req.body.stockName.toUpperCase()
+      stockName: req.body.stockName.toUpperCase(),
+      quantity: req.body.quantity || 1,
+      isTeamTrade: req.body.isTeamTrade || false
     };
     
     const entry = new JournalEntry(entryData);
@@ -187,6 +209,17 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
     });
   } catch (error) {
     console.error('Create journal entry error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error creating journal entry'
@@ -208,9 +241,27 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       });
     }
 
+    // Validate closed trade requirements
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice) {
+        return res.status(400).json({
+          success: false,
+          message: 'Exit price is required for closed trades'
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Exit date is required for closed trades'
+        });
+      }
+    }
+
     const updateData = {
       ...req.body,
-      stockName: req.body.stockName.toUpperCase()
+      stockName: req.body.stockName.toUpperCase(),
+      quantity: req.body.quantity || 1,
+      isTeamTrade: req.body.isTeamTrade || false
     };
     
     const entry = await JournalEntry.findOneAndUpdate(
@@ -233,6 +284,17 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
     });
   } catch (error) {
     console.error('Update journal entry error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error updating journal entry'
