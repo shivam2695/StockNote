@@ -45,11 +45,11 @@ const focusStockSchema = new mongoose.Schema({
   },
   month: {
     type: String,
-    required: true
+    required: false // Make it optional since we auto-generate it
   },
   year: {
     type: Number,
-    required: true
+    required: false // Make it optional since we auto-generate it
   },
   // Additional fields for better tracking
   reason: {
@@ -96,10 +96,12 @@ focusStockSchema.index({ user: 1, tradeTaken: 1 });
 
 // Calculate derived fields before saving
 focusStockSchema.pre('save', function(next) {
-  // Auto-generate month and year from current date
-  const currentDate = new Date();
-  this.month = currentDate.toLocaleDateString('en-US', { month: 'long' });
-  this.year = currentDate.getFullYear();
+  // Auto-generate month and year from current date if not provided
+  if (!this.month || !this.year) {
+    const currentDate = new Date();
+    this.month = currentDate.toLocaleDateString('en-US', { month: 'long' });
+    this.year = currentDate.getFullYear();
+  }
   
   // Calculate potential return
   this.potentialReturn = this.targetPrice - this.entryPrice;

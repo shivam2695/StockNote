@@ -186,12 +186,24 @@ router.post('/', auth, validateFocusStock, async (req, res) => {
       });
     }
 
+    // Auto-generate month and year from current date
+    const currentDate = new Date();
+    const month = currentDate.toLocaleDateString('en-US', { month: 'long' });
+    const year = currentDate.getFullYear();
+
     const stockData = {
-      ...req.body,
       user: req.user._id,
       stockName: req.body.stockName.toUpperCase().trim(),
+      entryPrice: req.body.entryPrice,
+      targetPrice: req.body.targetPrice,
+      stopLossPrice: req.body.stopLossPrice,
+      currentPrice: req.body.currentPrice,
       reason: req.body.reason.trim(),
-      notes: req.body.notes ? req.body.notes.trim() : ''
+      notes: req.body.notes ? req.body.notes.trim() : '',
+      tradeTaken: req.body.tradeTaken || false,
+      tradeDate: req.body.tradeDate || undefined,
+      month: month,
+      year: year
     };
     
     const stock = new FocusStock(stockData);
@@ -236,11 +248,23 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
       });
     }
 
+    // Auto-generate month and year from current date
+    const currentDate = new Date();
+    const month = currentDate.toLocaleDateString('en-US', { month: 'long' });
+    const year = currentDate.getFullYear();
+
     const updateData = {
-      ...req.body,
       stockName: req.body.stockName.toUpperCase().trim(),
+      entryPrice: req.body.entryPrice,
+      targetPrice: req.body.targetPrice,
+      stopLossPrice: req.body.stopLossPrice,
+      currentPrice: req.body.currentPrice,
       reason: req.body.reason.trim(),
-      notes: req.body.notes ? req.body.notes.trim() : ''
+      notes: req.body.notes ? req.body.notes.trim() : '',
+      tradeTaken: req.body.tradeTaken || false,
+      tradeDate: req.body.tradeDate || undefined,
+      month: month,
+      year: year
     };
     
     const stock = await FocusStock.findOneAndUpdate(
