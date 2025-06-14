@@ -48,15 +48,10 @@ export function useTrades(userEmail?: string) {
 
   const addTrade = async (tradeData: Omit<Trade, 'id'>) => {
     try {
-      // Create entry date object to extract month and year
-      const entryDate = new Date(tradeData.entryDate);
-      const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
-      const year = entryDate.getFullYear();
-
       // Validate required fields for closed trades
       if (tradeData.status === 'CLOSED') {
         if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
-          throw new Error('Exit price is required for closed trades');
+          throw new Error('Exit price is required and must be greater than 0 for closed trades');
         }
         if (!tradeData.exitDate) {
           throw new Error('Exit date is required for closed trades');
@@ -76,12 +71,12 @@ export function useTrades(userEmail?: string) {
         status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
-        exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
-        exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
         isTeamTrade: false,
-        // Add month and year explicitly
-        month: month,
-        year: year
+        // Only include exit fields if status is closed
+        ...(tradeData.status === 'CLOSED' && {
+          exitPrice: tradeData.exitPrice,
+          exitDate: tradeData.exitDate
+        })
       };
       
       console.log('Sending trade data to API:', entryData);
@@ -99,15 +94,10 @@ export function useTrades(userEmail?: string) {
 
   const updateTrade = async (tradeId: string, tradeData: Omit<Trade, 'id'>) => {
     try {
-      // Create entry date object to extract month and year
-      const entryDate = new Date(tradeData.entryDate);
-      const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
-      const year = entryDate.getFullYear();
-
       // Validate required fields for closed trades
       if (tradeData.status === 'CLOSED') {
         if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
-          throw new Error('Exit price is required for closed trades');
+          throw new Error('Exit price is required and must be greater than 0 for closed trades');
         }
         if (!tradeData.exitDate) {
           throw new Error('Exit date is required for closed trades');
@@ -127,12 +117,12 @@ export function useTrades(userEmail?: string) {
         status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
-        exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
-        exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
         isTeamTrade: false,
-        // Add month and year explicitly
-        month: month,
-        year: year
+        // Only include exit fields if status is closed
+        ...(tradeData.status === 'CLOSED' && {
+          exitPrice: tradeData.exitPrice,
+          exitDate: tradeData.exitDate
+        })
       };
       
       console.log('Updating trade with data:', entryData);
