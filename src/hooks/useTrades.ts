@@ -135,6 +135,8 @@ export function useTrades(userEmail?: string) {
         year: year
       };
       
+      console.log('Updating trade with data:', entryData);
+      
       const response = await apiService.updateJournalEntry(tradeId, entryData);
       
       if (response.success) {

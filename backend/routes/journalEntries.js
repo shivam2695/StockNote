@@ -45,8 +45,10 @@ const validateJournalEntry = [
     .isFloat({ min: 0.01 })
     .withMessage('Exit price must be greater than 0')
     .custom((value, { req }) => {
-      if (req.body.status === 'closed' && (!value || value <= 0)) {
-        throw new Error('Exit price is required for closed trades');
+      if (req.body.status === 'closed') {
+        if (!value || value <= 0) {
+          throw new Error('Exit price is required for closed trades');
+        }
       }
       return true;
     }),
@@ -55,8 +57,10 @@ const validateJournalEntry = [
     .isISO8601()
     .withMessage('Exit date must be a valid date')
     .custom((value, { req }) => {
-      if (req.body.status === 'closed' && !value) {
-        throw new Error('Exit date is required for closed trades');
+      if (req.body.status === 'closed') {
+        if (!value) {
+          throw new Error('Exit date is required for closed trades');
+        }
       }
       if (value && req.body.entryDate) {
         const entryDate = new Date(req.body.entryDate);
@@ -220,6 +224,24 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
     console.log('Creating journal entry with body:', req.body);
     console.log('User:', req.user._id);
 
+    // Additional validation for closed trades
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice || req.body.exitPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit price is required for closed trades']
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit date is required for closed trades']
+        });
+      }
+    }
+
     // Auto-generate month and year from entryDate if not provided
     let month = req.body.month;
     let year = req.body.year;
@@ -285,6 +307,24 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
         message: 'Validation failed',
         errors: errors.array().map(err => err.msg)
       });
+    }
+
+    // Additional validation for closed trades
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice || req.body.exitPrice <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit price is required for closed trades']
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit date is required for closed trades']
+        });
+      }
     }
 
     // Auto-generate month and year from entryDate if not provided

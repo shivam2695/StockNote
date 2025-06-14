@@ -98,7 +98,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
 
     // Closed trade validations
     if (formData.status === 'CLOSED') {
-      if (!formData.exitPrice) {
+      if (!formData.exitPrice || formData.exitPrice.trim() === '') {
         newErrors.exitPrice = 'Exit price is required for closed trades';
       } else {
         const exitPrice = parseFloat(formData.exitPrice);
@@ -107,7 +107,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         }
       }
 
-      if (!formData.exitDate) {
+      if (!formData.exitDate || formData.exitDate.trim() === '') {
         newErrors.exitDate = 'Exit date is required for closed trades';
       } else if (formData.entryDate) {
         const entryDate = new Date(formData.entryDate);
@@ -146,19 +146,37 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         symbol: formData.symbol.toUpperCase().trim(),
         type: formData.type,
         entryPrice: parseFloat(formData.entryPrice),
-        exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
+        exitPrice: formData.status === 'CLOSED' && formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
         quantity: parseInt(formData.quantity),
         entryDate: formData.entryDate,
-        exitDate: formData.exitDate || undefined,
+        exitDate: formData.status === 'CLOSED' && formData.exitDate ? formData.exitDate : undefined,
         status: formData.status,
         notes: formData.notes.trim() || undefined
       };
 
+      // Additional validation before sending
+      if (tradeData.status === 'CLOSED') {
+        if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
+          setErrors({ exitPrice: 'Exit price is required for closed trades' });
+          return;
+        }
+        if (!tradeData.exitDate) {
+          setErrors({ exitDate: 'Exit date is required for closed trades' });
+          return;
+        }
+      }
+
+      console.log('Submitting trade data:', tradeData);
       await onSave(tradeData);
       onClose();
     } catch (error: any) {
-      // Error is handled by parent component
       console.error('Trade save error:', error);
+      // Error is handled by parent component, but we can also show it here
+      if (error.message.includes('Exit price is required')) {
+        setErrors({ exitPrice: 'Exit price is required for closed trades' });
+      } else if (error.message.includes('Exit date is required')) {
+        setErrors({ exitDate: 'Exit date is required for closed trades' });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -168,6 +186,24 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleStatusChange = (newStatus: 'ACTIVE' | 'CLOSED') => {
+    setFormData(prev => ({ 
+      ...prev, 
+      status: newStatus,
+      // Auto-fill exit date with today if closing trade
+      exitDate: newStatus === 'CLOSED' && !prev.exitDate ? new Date().toISOString().split('T')[0] : prev.exitDate
+    }));
+    // Clear related errors when status changes
+    if (newStatus === 'ACTIVE') {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.exitPrice;
+        delete newErrors.exitDate;
+        return newErrors;
+      });
     }
   };
 
@@ -325,7 +361,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             </label>
             <select
               value={formData.status}
-              onChange={(e) => handleInputChange('status', e.target.value)}
+              onChange={(e) => handleStatusChange(e.target.value as 'ACTIVE' | 'CLOSED')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               disabled={isSubmitting}
             >
@@ -335,51 +371,86 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
           </div>
 
           {formData.status === 'CLOSED' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exit Price *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.exitPrice}
-                  onChange={(e) => handleInputChange('exitPrice', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.exitPrice ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  min="0"
-                  disabled={isSubmitting}
-                />
-                {errors.exitPrice && (
-                  <div className="mt-1 flex items-center space-x-1">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <p className="text-sm text-red-600">{errors.exitPrice}</p>
-                  </div>
-                )}
+            <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="text-sm font-medium text-gray-700 mb-2">
+                Closing Trade Details
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Exit Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.exitDate}
-                  onChange={(e) => handleInputChange('exitDate', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.exitDate ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  min={formData.entryDate}
-                  max={new Date().toISOString().split('T')[0]}
-                  disabled={isSubmitting}
-                />
-                {errors.exitDate && (
-                  <div className="mt-1 flex items-center space-x-1">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <p className="text-sm text-red-600">{errors.exitDate}</p>
-                  </div>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Exit Price *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.exitPrice}
+                    onChange={(e) => handleInputChange('exitPrice', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.exitPrice ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    min="0"
+                    placeholder="0.00"
+                    disabled={isSubmitting}
+                    required
+                  />
+                  {errors.exitPrice && (
+                    <div className="mt-1 flex items-center space-x-1">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      <p className="text-sm text-red-600">{errors.exitPrice}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Exit Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.exitDate}
+                    onChange={(e) => handleInputChange('exitDate', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.exitDate ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    min={formData.entryDate}
+                    max={new Date().toISOString().split('T')[0]}
+                    disabled={isSubmitting}
+                    required
+                  />
+                  {errors.exitDate && (
+                    <div className="mt-1 flex items-center space-x-1">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      <p className="text-sm text-red-600">{errors.exitDate}</p>
+                    </div>
+                  )}
+                </div>
               </div>
+              
+              {/* Show P&L calculation if both prices are available */}
+              {formData.entryPrice && formData.exitPrice && formData.quantity && (
+                <div className="mt-3 p-3 bg-white rounded border">
+                  <div className="text-sm font-medium text-gray-700 mb-2">P&L Preview</div>
+                  {(() => {
+                    const entryPrice = parseFloat(formData.entryPrice);
+                    const exitPrice = parseFloat(formData.exitPrice);
+                    const quantity = parseInt(formData.quantity);
+                    const pnl = (exitPrice - entryPrice) * quantity;
+                    const pnlPercentage = ((exitPrice - entryPrice) / entryPrice) * 100;
+                    
+                    return (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">
+                          {quantity} × (₹{exitPrice} - ₹{entryPrice})
+                        </span>
+                        <span className={`text-sm font-semibold ${
+                          pnl >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          ₹{pnl.toFixed(2)} ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
 
