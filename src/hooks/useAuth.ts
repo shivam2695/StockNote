@@ -58,19 +58,12 @@ export const useAuth = () => {
       const response = await apiService.signup(name, email, password);
       
       if (response.success) {
-        // For signup, we might need email verification
-        if (response.data?.requiresEmailVerification) {
-          return { requiresVerification: true, email };
-        }
-        
-        // If no verification needed, auto-login
-        if (response.data?.user) {
-          setAuthState({
-            isAuthenticated: true,
-            user: response.data.user,
-          });
-          localStorage.setItem('currentUser', JSON.stringify(response.data.user));
-        }
+        // For signup, we need email verification
+        return { 
+          requiresVerification: response.data?.requiresEmailVerification,
+          email,
+          success: true
+        };
       }
       
       return response;
@@ -120,8 +113,13 @@ export const useAuth = () => {
       }
       
       throw new Error(response.message || 'Login failed');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Check if it's an email verification error
+      if (error.requiresEmailVerification) {
+        throw error; // Re-throw with verification info
+      }
       
       // Fallback to local storage if backend is down
       if (error instanceof Error && error.message.includes('Backend returned HTML')) {

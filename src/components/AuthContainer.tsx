@@ -11,10 +11,9 @@ interface AuthContainerProps {
 
 export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps) {
   const [currentView, setCurrentView] = useState<'login' | 'signup' | 'otp' | 'forgot-password'>('login');
-  const [pendingSignUp, setPendingSignUp] = useState<{
-    name: string;
+  const [pendingVerification, setPendingVerification] = useState<{
     email: string;
-    password: string;
+    fromLogin?: boolean;
   } | null>(null);
   const [error, setError] = useState('');
 
@@ -22,8 +21,13 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
     try {
       setError('');
       await onLogin(email, password);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Login failed');
+    } catch (error: any) {
+      if (error.requiresEmailVerification) {
+        setPendingVerification({ email, fromLogin: true });
+        setCurrentView('otp');
+      } else {
+        setError(error.message || 'Login failed');
+      }
     }
   };
 
@@ -32,25 +36,28 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
       setError('');
       const result = await onSignUp(name, email, password);
       
-      if (result?.requiresVerification) {
-        setPendingSignUp({ name, email, password });
+      if (result?.requiresEmailVerification) {
+        setPendingVerification({ email, fromLogin: false });
         setCurrentView('otp');
       }
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Sign up failed');
+    } catch (error: any) {
+      setError(error.message || 'Sign up failed');
     }
   };
 
   const handleOTPVerified = async () => {
-    // OTP verification is handled in the backend
-    // User should be automatically logged in after verification
-    setPendingSignUp(null);
+    // After OTP verification, user should be automatically logged in
+    setPendingVerification(null);
     setCurrentView('login');
   };
 
-  const handleBackToSignUp = () => {
-    setPendingSignUp(null);
-    setCurrentView('signup');
+  const handleBackFromOTP = () => {
+    setPendingVerification(null);
+    if (pendingVerification?.fromLogin) {
+      setCurrentView('login');
+    } else {
+      setCurrentView('signup');
+    }
   };
 
   const handleBackToLogin = () => {
@@ -68,13 +75,13 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
     setError('');
   };
 
-  if (currentView === 'otp' && pendingSignUp) {
+  if (currentView === 'otp' && pendingVerification) {
     return (
       <OTPVerification
-        email={pendingSignUp.email}
+        email={pendingVerification.email}
         onVerified={handleOTPVerified}
-        onBack={handleBackToSignUp}
-        purpose="signup"
+        onBack={handleBackFromOTP}
+        purpose={pendingVerification.fromLogin ? 'login' : 'signup'}
       />
     );
   }

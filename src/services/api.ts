@@ -29,7 +29,11 @@ class ApiService {
         throw new Error('Session expired. Please login again.');
       }
       
-      throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
+      // Return the error with additional data for email verification
+      const error = new Error(data.message || `HTTP ${response.status}: ${response.statusText}`) as any;
+      error.requiresEmailVerification = data.requiresEmailVerification;
+      error.email = data.email;
+      throw error;
     }
     
     return data;
@@ -84,6 +88,13 @@ class ApiService {
     }
     
     return data;
+  }
+
+  async resendVerificationEmail(email: string) {
+    return this.makeRequest('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
   }
 
   async forgotPassword(email: string) {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Mail, ArrowLeft, RefreshCw, CheckCircle } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface OTPVerificationProps {
   email: string;
   onVerified: () => void;
   onBack: () => void;
-  purpose: 'signup' | 'forgot-password';
+  purpose: 'signup' | 'login' | 'forgot-password';
 }
 
 export default function OTPVerification({ email, onVerified, onBack, purpose }: OTPVerificationProps) {
@@ -14,24 +15,7 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
   const [error, setError] = useState('');
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
   const [canResend, setCanResend] = useState(false);
-
-  // Generate and store OTP
-  const generateOTP = () => {
-    const newOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    localStorage.setItem(`otp_${email}`, newOTP);
-    localStorage.setItem(`otp_expiry_${email}`, (Date.now() + 300000).toString()); // 5 minutes
-    
-    // Simulate sending email (in real app, this would be an API call)
-    console.log(`OTP for ${email}: ${newOTP}`);
-    alert(`OTP sent to ${email}: ${newOTP} (Check console for development)`);
-    
-    return newOTP;
-  };
-
-  useEffect(() => {
-    // Generate OTP when component mounts
-    generateOTP();
-  }, [email]);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -80,51 +64,79 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
     setIsLoading(true);
     
     try {
-      const storedOTP = localStorage.getItem(`otp_${email}`);
-      const expiryTime = localStorage.getItem(`otp_expiry_${email}`);
+      const response = await apiService.verifyEmail(email, enteredOTP);
       
-      if (!storedOTP || !expiryTime) {
-        setError('OTP expired. Please request a new one.');
-        setIsLoading(false);
-        return;
-      }
-
-      if (Date.now() > parseInt(expiryTime)) {
-        setError('OTP expired. Please request a new one.');
-        localStorage.removeItem(`otp_${email}`);
-        localStorage.removeItem(`otp_expiry_${email}`);
-        setCanResend(true);
-        setIsLoading(false);
-        return;
-      }
-
-      if (enteredOTP === storedOTP) {
-        // OTP verified successfully
-        localStorage.removeItem(`otp_${email}`);
-        localStorage.removeItem(`otp_expiry_${email}`);
+      if (response.success) {
+        // Store token if provided (user is now logged in)
+        if (response.data?.token) {
+          localStorage.setItem('authToken', response.data.token);
+          localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+        }
         onVerified();
       } else {
-        setError('Invalid OTP. Please try again.');
+        setError(response.message || 'Verification failed');
       }
-    } catch (error) {
-      setError('Verification failed. Please try again.');
+    } catch (error: any) {
+      setError(error.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
-  const handleResendOTP = () => {
-    generateOTP();
-    setTimeLeft(300);
-    setCanResend(false);
-    setOtp(['', '', '', '', '', '']);
+  const handleResendOTP = async () => {
+    setIsResending(true);
     setError('');
+    
+    try {
+      const response = await apiService.resendVerificationEmail(email);
+      
+      if (response.success) {
+        setTimeLeft(300);
+        setCanResend(false);
+        setOtp(['', '', '', '', '', '']);
+        // Focus first input
+        const firstInput = document.getElementById('otp-0');
+        firstInput?.focus();
+      } else {
+        setError(response.message || 'Failed to resend OTP');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Failed to resend OTP');
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTitle = () => {
+    switch (purpose) {
+      case 'signup':
+        return 'Verify Your Email';
+      case 'login':
+        return 'Email Verification Required';
+      case 'forgot-password':
+        return 'Reset Password';
+      default:
+        return 'Verify Your Email';
+    }
+  };
+
+  const getDescription = () => {
+    switch (purpose) {
+      case 'signup':
+        return `Welcome! We've sent a 6-digit verification code to ${email}. Please enter it below to complete your registration.`;
+      case 'login':
+        return `Your email needs to be verified before you can log in. We've sent a 6-digit code to ${email}.`;
+      case 'forgot-password':
+        return `We've sent a 6-digit code to ${email} to reset your password.`;
+      default:
+        return `We've sent a 6-digit code to ${email}`;
+    }
   };
 
   return (
@@ -153,9 +165,9 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
                 className="h-16 w-auto"
               />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Verify Your Email</h1>
-            <p className="text-gray-600">
-              We've sent a 6-digit code to <span className="font-semibold">{email}</span>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{getTitle()}</h1>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {getDescription()}
             </p>
           </div>
 
@@ -200,9 +212,19 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
             <button
               onClick={handleVerify}
               disabled={isLoading || otp.join('').length !== 6}
-              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
             >
-              {isLoading ? 'Verifying...' : 'Verify Code'}
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Verifying...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Verify Code</span>
+                </>
+              )}
             </button>
 
             {/* Resend OTP */}
@@ -210,10 +232,11 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
               {canResend ? (
                 <button
                   onClick={handleResendOTP}
-                  className="text-purple-600 hover:text-purple-500 font-medium flex items-center justify-center space-x-2"
+                  disabled={isResending}
+                  className="text-purple-600 hover:text-purple-500 font-medium flex items-center justify-center space-x-2 mx-auto disabled:opacity-50"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Resend Code</span>
+                  <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
+                  <span>{isResending ? 'Sending...' : 'Resend Code'}</span>
                 </button>
               ) : (
                 <p className="text-sm text-gray-500">
@@ -228,7 +251,7 @@ export default function OTPVerification({ email, onVerified, onBack, purpose }: 
               className="w-full flex items-center justify-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back to {purpose === 'signup' ? 'Sign Up' : 'Login'}</span>
+              <span>Back to {purpose === 'login' ? 'Login' : purpose === 'signup' ? 'Sign Up' : 'Login'}</span>
             </button>
           </div>
         </div>

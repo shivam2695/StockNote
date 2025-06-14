@@ -58,8 +58,13 @@ router.post('/signup', validateSignup, async (req, res) => {
       });
     }
 
-    // Create new user
-    const user = new User({ name, email, password });
+    // Create new user with verified: false
+    const user = new User({ 
+      name, 
+      email, 
+      password,
+      verified: false 
+    });
     
     // Generate email verification token
     const verificationToken = user.generateEmailVerificationToken();
@@ -77,7 +82,12 @@ router.post('/signup', validateSignup, async (req, res) => {
       success: true,
       message: 'User registered successfully. Please check your email for verification.',
       data: {
-        user: user.profile,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          verified: user.verified
+        },
         requiresEmailVerification: true
       }
     });
@@ -111,7 +121,7 @@ router.post('/verify-email', validateEmailVerification, async (req, res) => {
     }
 
     // Mark email as verified
-    user.isEmailVerified = true;
+    user.verified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save();
@@ -151,7 +161,7 @@ router.post('/resend-verification', validatePasswordReset, async (req, res) => {
       });
     }
 
-    if (user.isEmailVerified) {
+    if (user.verified) {
       return res.status(400).json({
         success: false,
         message: 'Email is already verified'
@@ -219,6 +229,16 @@ router.post('/login', validateLogin, async (req, res) => {
       });
     }
 
+    // IMPORTANT: Block login for unverified users
+    if (!user.verified) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please verify your email before logging in',
+        requiresEmailVerification: true,
+        email: user.email
+      });
+    }
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
@@ -231,8 +251,7 @@ router.post('/login', validateLogin, async (req, res) => {
       message: 'Login successful',
       data: {
         token,
-        user: user.profile,
-        requiresEmailVerification: !user.isEmailVerified
+        user: user.profile
       }
     });
   } catch (error) {
