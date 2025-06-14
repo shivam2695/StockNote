@@ -1,5 +1,16 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Calendar, Settings, FileText, Target } from 'lucide-react';
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Calendar, 
+  Settings, 
+  FileText, 
+  Target,
+  Home,
+  PieChart,
+  Bell,
+  User
+} from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -8,48 +19,82 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'trades', label: 'All Trades', icon: FileText },
     { id: 'focus-stocks', label: 'Focus Stocks', icon: Target },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+    { id: 'analytics', label: 'Analytics', icon: PieChart },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
+  ];
+
+  const bottomMenuItems = [
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'profile', label: 'Profile', icon: User },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (
-    <div className="bg-gray-900 text-white h-screen w-64 fixed left-0 top-0 z-10">
-      <div className="p-6">
-        <div className="flex items-center space-x-3 mb-8">
-          <img 
-            src="/Black White Minimalist Fierce Bull Logo.png" 
-            alt="StockNote Logo" 
-            className="h-10 w-auto"
-          />
+    <div className="bg-white border-r border-gray-200 h-screen w-64 fixed left-0 top-0 z-30 flex flex-col shadow-lg">
+      {/* Logo Section */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
           <div>
-            <h1 className="text-xl font-bold">StockNote</h1>
-            <p className="text-sm text-gray-400">Log. Analyze. Grow.</p>
+            <h1 className="text-xl font-bold text-gray-900">StockNote</h1>
+            <p className="text-sm text-gray-500">Trading Journal</p>
           </div>
         </div>
+      </div>
 
-        <nav className="space-y-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  activeTab === item.id
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+      {/* Main Navigation */}
+      <nav className="flex-1 p-4 space-y-2">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`} />
+              <span className="font-medium">{item.label}</span>
+              {isActive && (
+                <div className="ml-auto w-2 h-2 bg-white rounded-full opacity-80" />
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Bottom Navigation */}
+      <div className="p-4 border-t border-gray-200 space-y-2">
+        {bottomMenuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                isActive
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'}`} />
+              <span className="font-medium">{item.label}</span>
+              {item.id === 'notifications' && (
+                <div className="ml-auto w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
