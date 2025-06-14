@@ -10,30 +10,35 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { User as UserType } from '../types/Auth';
+import { Notification } from '../types/Notification';
+import NotificationCenter from './NotificationCenter';
 
 interface HeaderProps {
   user: UserType;
   onLogout: () => void;
   onMenuToggle?: () => void;
   isMobileMenuOpen?: boolean;
+  notifications: Notification[];
+  unreadCount: number;
+  onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead: () => void;
+  onDeleteNotification: (id: string) => void;
+  onClearAllNotifications: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
   user, 
   onLogout, 
   onMenuToggle,
-  isMobileMenuOpen = false 
+  isMobileMenuOpen = false,
+  notifications,
+  unreadCount,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onDeleteNotification,
+  onClearAllNotifications
 }) => {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-
-  const notifications = [
-    { id: 1, title: 'Trade Alert', message: 'AAPL reached your target price', time: '2m ago', unread: true },
-    { id: 2, title: 'Portfolio Update', message: 'Monthly report is ready', time: '1h ago', unread: true },
-    { id: 3, title: 'Market News', message: 'Tech stocks showing strong momentum', time: '3h ago', unread: false },
-  ];
-
-  const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -74,60 +79,14 @@ const Header: React.FC<HeaderProps> = ({
             </button>
 
             {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors relative"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Notifications Dropdown */}
-              {isNotificationOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  <div className="px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div
-                        key={notification.id}
-                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${
-                          notification.unread ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <div className="flex items-start space-x-3">
-                          <div className={`w-2 h-2 rounded-full mt-2 ${
-                            notification.unread ? 'bg-blue-500' : 'bg-gray-300'
-                          }`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">
-                              {notification.title}
-                            </p>
-                            <p className="text-sm text-gray-500 truncate">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {notification.time}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-200">
-                    <button className="text-sm text-blue-600 hover:text-blue-500 font-medium">
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationCenter
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onMarkAsRead={onMarkAsRead}
+              onMarkAllAsRead={onMarkAllAsRead}
+              onDelete={onDeleteNotification}
+              onClearAll={onClearAllNotifications}
+            />
 
             {/* Profile Dropdown */}
             <div className="relative">

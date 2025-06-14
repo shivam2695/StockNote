@@ -2,14 +2,14 @@ import React from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
-  Calendar, 
   Settings, 
   FileText, 
   Target,
   Home,
   PieChart,
   Bell,
-  User
+  User,
+  Users
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,10 +20,10 @@ interface SidebarProps {
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'trades', label: 'All Trades', icon: FileText },
+    { id: 'trades', label: 'Trading Journal', icon: FileText },
     { id: 'focus-stocks', label: 'Focus Stocks', icon: Target },
+    { id: 'teams', label: 'Teams', icon: Users },
     { id: 'analytics', label: 'Analytics', icon: PieChart },
-    { id: 'calendar', label: 'Calendar', icon: Calendar },
   ];
 
   const bottomMenuItems = [
