@@ -63,11 +63,11 @@ const journalEntrySchema = new mongoose.Schema({
   },
   month: {
     type: String,
-    required: [true, 'Month is required']
+    required: false // Make optional since we auto-generate it
   },
   year: {
     type: Number,
-    required: [true, 'Year is required']
+    required: false // Make optional since we auto-generate it
   },
   quantity: {
     type: Number,
@@ -110,12 +110,10 @@ journalEntrySchema.index({ user: 1, isTeamTrade: 1 });
 
 // Calculate P&L and auto-generate fields before saving
 journalEntrySchema.pre('save', function(next) {
-  // Auto-generate month and year from entryDate if not provided
-  if (!this.month || !this.year) {
-    const entryDate = new Date(this.entryDate);
-    this.month = entryDate.toLocaleDateString('en-US', { month: 'long' });
-    this.year = entryDate.getFullYear();
-  }
+  // ALWAYS auto-generate month and year from entryDate
+  const entryDate = new Date(this.entryDate);
+  this.month = entryDate.toLocaleDateString('en-US', { month: 'long' });
+  this.year = entryDate.getFullYear();
   
   // Calculate P&L based on status
   if (this.status === 'closed' && this.exitPrice) {
