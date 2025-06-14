@@ -42,7 +42,15 @@ const validateJournalEntry = [
   body('isTeamTrade')
     .optional()
     .isBoolean()
-    .withMessage('isTeamTrade must be a boolean')
+    .withMessage('isTeamTrade must be a boolean'),
+  body('month')
+    .optional()
+    .isString()
+    .withMessage('Month must be a string'),
+  body('year')
+    .optional()
+    .isInt({ min: 1900, max: 2100 })
+    .withMessage('Year must be a valid year')
 ];
 
 // @route   GET /api/journal-entries
@@ -195,13 +203,25 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       }
     }
 
+    // Auto-generate month and year from entryDate if not provided
+    let month = req.body.month;
+    let year = req.body.year;
+    
+    if (!month || !year) {
+      const entryDate = new Date(req.body.entryDate);
+      month = entryDate.toLocaleDateString('en-US', { month: 'long' });
+      year = entryDate.getFullYear();
+    }
+
     const entryData = {
       ...req.body,
       user: req.user._id,
       stockName: req.body.stockName.toUpperCase(),
       quantity: req.body.quantity || 1,
       isTeamTrade: req.body.isTeamTrade || false,
-      remarks: req.body.remarks || ''
+      remarks: req.body.remarks || '',
+      month: month,
+      year: year
     };
     
     console.log('Final entry data:', entryData);
@@ -266,12 +286,24 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       }
     }
 
+    // Auto-generate month and year from entryDate if not provided
+    let month = req.body.month;
+    let year = req.body.year;
+    
+    if (!month || !year) {
+      const entryDate = new Date(req.body.entryDate);
+      month = entryDate.toLocaleDateString('en-US', { month: 'long' });
+      year = entryDate.getFullYear();
+    }
+
     const updateData = {
       ...req.body,
       stockName: req.body.stockName.toUpperCase(),
       quantity: req.body.quantity || 1,
       isTeamTrade: req.body.isTeamTrade || false,
-      remarks: req.body.remarks || ''
+      remarks: req.body.remarks || '',
+      month: month,
+      year: year
     };
     
     const entry = await JournalEntry.findOneAndUpdate(

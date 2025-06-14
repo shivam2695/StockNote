@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FocusStock } from '../types/FocusStock';
 import FocusStocksTable from './FocusStocksTable';
 import FocusStockModal from './FocusStockModal';
-import { Target, PlusCircle, TrendingUp, Eye } from 'lucide-react';
+import { Target, PlusCircle, TrendingUp, Eye, AlertCircle } from 'lucide-react';
 
 interface FocusStocksProps {
   stocks: FocusStock[];
@@ -21,24 +21,33 @@ export default function FocusStocks({
 }: FocusStocksProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<FocusStock | undefined>();
+  const [error, setError] = useState<string>('');
 
   const handleEditStock = (stock: FocusStock) => {
     setEditingStock(stock);
     setIsModalOpen(true);
   };
 
-  const handleSaveStock = (stockData: Omit<FocusStock, 'id'>) => {
-    if (editingStock) {
-      onEditStock(editingStock.id, stockData);
-    } else {
-      onAddStock(stockData);
+  const handleSaveStock = async (stockData: Omit<FocusStock, 'id'>) => {
+    try {
+      setError('');
+      if (editingStock) {
+        await onEditStock(editingStock.id, stockData);
+      } else {
+        await onAddStock(stockData);
+      }
+      setEditingStock(undefined);
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error('Save focus stock error:', error);
+      setError(error.message || 'Failed to save focus stock');
     }
-    setEditingStock(undefined);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingStock(undefined);
+    setError('');
   };
 
   const pendingStocks = stocks.filter(stock => !stock.tradeTaken);
@@ -77,6 +86,25 @@ export default function FocusStocks({
           <span>Add Stock</span>
         </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="text-red-800 text-sm font-medium">Error</p>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+            <button
+              onClick={() => setError('')}
+              className="ml-auto text-red-400 hover:text-red-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

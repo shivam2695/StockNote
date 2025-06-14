@@ -28,7 +28,7 @@ export function useFocusStocks(userEmail?: string) {
           dateAdded: stock.createdAt ? stock.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
           tradeTaken: stock.tradeTaken || false,
           tradeDate: stock.tradeDate ? stock.tradeDate.split('T')[0] : undefined,
-          notes: stock.notes
+          notes: stock.notes || ''
         }));
         
         setFocusStocks(transformedStocks);
@@ -54,11 +54,13 @@ export function useFocusStocks(userEmail?: string) {
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95, // Default 5% stop loss
         currentPrice: stockData.currentPrice,
-        reason: stockData.reason,
-        notes: stockData.notes,
-        tradeTaken: stockData.tradeTaken,
-        tradeDate: stockData.tradeDate
+        reason: stockData.reason || '',
+        notes: stockData.notes || '',
+        tradeTaken: stockData.tradeTaken || false,
+        tradeDate: stockData.tradeDate || undefined
       };
+      
+      console.log('Sending focus stock data to API:', apiData);
       
       const response = await apiService.createFocusStock(apiData);
       
@@ -80,10 +82,10 @@ export function useFocusStocks(userEmail?: string) {
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95,
         currentPrice: stockData.currentPrice,
-        reason: stockData.reason,
-        notes: stockData.notes,
-        tradeTaken: stockData.tradeTaken,
-        tradeDate: stockData.tradeDate
+        reason: stockData.reason || '',
+        notes: stockData.notes || '',
+        tradeTaken: stockData.tradeTaken || false,
+        tradeDate: stockData.tradeDate || undefined
       };
       
       const response = await apiService.updateFocusStock(stockId, apiData);

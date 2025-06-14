@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FocusStock } from '../types/FocusStock';
-import { X, Target } from 'lucide-react';
+import { X, Target, AlertCircle } from 'lucide-react';
 
 interface FocusStockModalProps {
   isOpen: boolean;
@@ -21,13 +21,15 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
     notes: ''
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (stock) {
       setFormData({
         symbol: stock.symbol,
         targetPrice: stock.targetPrice.toString(),
         currentPrice: stock.currentPrice.toString(),
-        reason: stock.reason,
+        reason: stock.reason || '',
         dateAdded: stock.dateAdded,
         tradeTaken: stock.tradeTaken,
         tradeDate: stock.tradeDate || '',
@@ -45,24 +47,67 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         notes: ''
       });
     }
+    setErrors({});
   }, [stock, isOpen]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.symbol.trim()) {
+      newErrors.symbol = 'Symbol is required';
+    }
+
+    if (!formData.currentPrice || parseFloat(formData.currentPrice) <= 0) {
+      newErrors.currentPrice = 'Current price must be greater than 0';
+    }
+
+    if (!formData.targetPrice || parseFloat(formData.targetPrice) <= 0) {
+      newErrors.targetPrice = 'Target price must be greater than 0';
+    }
+
+    if (!formData.reason.trim()) {
+      newErrors.reason = 'Reason is required';
+    }
+
+    if (!formData.dateAdded) {
+      newErrors.dateAdded = 'Date added is required';
+    }
+
+    if (formData.tradeTaken && !formData.tradeDate) {
+      newErrors.tradeDate = 'Trade date is required when trade is taken';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!validateForm()) {
+      return;
+    }
+    
     const stockData: Omit<FocusStock, 'id'> = {
-      symbol: formData.symbol.toUpperCase(),
+      symbol: formData.symbol.toUpperCase().trim(),
       targetPrice: parseFloat(formData.targetPrice),
       currentPrice: parseFloat(formData.currentPrice),
-      reason: formData.reason,
+      reason: formData.reason.trim(),
       dateAdded: formData.dateAdded,
       tradeTaken: formData.tradeTaken,
       tradeDate: formData.tradeDate || undefined,
-      notes: formData.notes || undefined
+      notes: formData.notes.trim() || undefined
     };
 
     onSave(stockData);
     onClose();
+  };
+
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   if (!isOpen) return null;
@@ -85,74 +130,90 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Symbol
+              Symbol *
             </label>
             <input
               type="text"
               value={formData.symbol}
-              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => handleInputChange('symbol', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.symbol ? 'border-red-500' : 'border-gray-300'
+              }`}
               placeholder="RELIANCE"
               required
             />
+            {errors.symbol && <p className="mt-1 text-sm text-red-600">{errors.symbol}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Price (₹)
+                Current Price (₹) *
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.currentPrice}
-                onChange={(e) => setFormData({ ...formData, currentPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleInputChange('currentPrice', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.currentPrice ? 'border-red-500' : 'border-gray-300'
+                }`}
                 min="0"
                 required
               />
+              {errors.currentPrice && <p className="mt-1 text-sm text-red-600">{errors.currentPrice}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Price (₹)
+                Target Price (₹) *
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.targetPrice}
-                onChange={(e) => setFormData({ ...formData, targetPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleInputChange('targetPrice', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.targetPrice ? 'border-red-500' : 'border-gray-300'
+                }`}
                 min="0"
                 required
               />
+              {errors.targetPrice && <p className="mt-1 text-sm text-red-600">{errors.targetPrice}</p>}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Reason for Focus
+              Reason for Focus *
             </label>
             <input
               type="text"
               value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => handleInputChange('reason', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.reason ? 'border-red-500' : 'border-gray-300'
+              }`}
               placeholder="Technical breakout, earnings play, etc."
               required
+              maxLength={200}
             />
+            {errors.reason && <p className="mt-1 text-sm text-red-600">{errors.reason}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date Added
+              Date Added *
             </label>
             <input
               type="date"
               value={formData.dateAdded}
-              onChange={(e) => setFormData({ ...formData, dateAdded: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => handleInputChange('dateAdded', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.dateAdded ? 'border-red-500' : 'border-gray-300'
+              }`}
               required
             />
+            {errors.dateAdded && <p className="mt-1 text-sm text-red-600">{errors.dateAdded}</p>}
           </div>
 
           <div className="flex items-center space-x-3">
@@ -160,7 +221,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
               type="checkbox"
               id="tradeTaken"
               checked={formData.tradeTaken}
-              onChange={(e) => setFormData({ ...formData, tradeTaken: e.target.checked })}
+              onChange={(e) => handleInputChange('tradeTaken', e.target.checked)}
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="tradeTaken" className="text-sm font-medium text-gray-700">
@@ -171,14 +232,17 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
           {formData.tradeTaken && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trade Date
+                Trade Date *
               </label>
               <input
                 type="date"
                 value={formData.tradeDate}
-                onChange={(e) => setFormData({ ...formData, tradeDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onChange={(e) => handleInputChange('tradeDate', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  errors.tradeDate ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+              {errors.tradeDate && <p className="mt-1 text-sm text-red-600">{errors.tradeDate}</p>}
             </div>
           )}
 
@@ -188,10 +252,11 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
             </label>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
               placeholder="Additional notes about this stock..."
+              maxLength={500}
             />
           </div>
 

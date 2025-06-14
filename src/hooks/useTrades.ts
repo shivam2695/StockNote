@@ -48,6 +48,11 @@ export function useTrades(userEmail?: string) {
 
   const addTrade = async (tradeData: Omit<Trade, 'id'>) => {
     try {
+      // Create entry date object to extract month and year
+      const entryDate = new Date(tradeData.entryDate);
+      const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
+      const year = entryDate.getFullYear();
+
       // Transform frontend Trade to API JournalEntry format
       const entryData = {
         stockName: tradeData.symbol.toUpperCase().trim(),
@@ -59,7 +64,10 @@ export function useTrades(userEmail?: string) {
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
         exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
-        isTeamTrade: false
+        isTeamTrade: false,
+        // Add month and year explicitly
+        month: month,
+        year: year
       };
       
       console.log('Sending trade data to API:', entryData);
@@ -77,6 +85,11 @@ export function useTrades(userEmail?: string) {
 
   const updateTrade = async (tradeId: string, tradeData: Omit<Trade, 'id'>) => {
     try {
+      // Create entry date object to extract month and year
+      const entryDate = new Date(tradeData.entryDate);
+      const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
+      const year = entryDate.getFullYear();
+
       // Transform frontend Trade to API JournalEntry format
       const entryData = {
         stockName: tradeData.symbol.toUpperCase().trim(),
@@ -88,7 +101,10 @@ export function useTrades(userEmail?: string) {
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
         exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
-        isTeamTrade: false
+        isTeamTrade: false,
+        // Add month and year explicitly
+        month: month,
+        year: year
       };
       
       const response = await apiService.updateJournalEntry(tradeId, entryData);
