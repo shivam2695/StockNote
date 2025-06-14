@@ -90,24 +90,35 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     } else {
       const entryDate = new Date(formData.entryDate);
       const today = new Date();
-      today.setHours(23, 59, 59, 999); // End of today
+      today.setHours(23, 59, 59, 999);
       if (entryDate > today) {
         newErrors.entryDate = 'Entry date cannot be in the future';
       }
     }
 
-    // Closed trade validations
+    // CRITICAL: Closed trade validations - only validate if status is CLOSED
     if (formData.status === 'CLOSED') {
+      console.log('🔍 Frontend validation: Checking closed trade requirements');
+      console.log('Exit price value:', formData.exitPrice, 'Type:', typeof formData.exitPrice);
+      console.log('Exit date value:', formData.exitDate, 'Type:', typeof formData.exitDate);
+      
+      // Exit price validation for closed trades
       if (!formData.exitPrice || formData.exitPrice.trim() === '') {
+        console.log('❌ Frontend validation: Exit price is empty');
         newErrors.exitPrice = 'Exit price is required for closed trades';
       } else {
         const exitPrice = parseFloat(formData.exitPrice);
         if (isNaN(exitPrice) || exitPrice <= 0) {
+          console.log('❌ Frontend validation: Exit price is invalid:', exitPrice);
           newErrors.exitPrice = 'Exit price must be greater than 0';
+        } else {
+          console.log('✅ Frontend validation: Exit price is valid:', exitPrice);
         }
       }
 
+      // Exit date validation for closed trades
       if (!formData.exitDate || formData.exitDate.trim() === '') {
+        console.log('❌ Frontend validation: Exit date is empty');
         newErrors.exitDate = 'Exit date is required for closed trades';
       } else if (formData.entryDate) {
         const entryDate = new Date(formData.entryDate);
@@ -120,7 +131,10 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         if (exitDate > today) {
           newErrors.exitDate = 'Exit date cannot be in the future';
         }
+        console.log('✅ Frontend validation: Exit date is valid:', formData.exitDate);
       }
+    } else {
+      console.log('ℹ️ Frontend validation: Trade is ACTIVE, skipping exit validations');
     }
 
     // Notes validation
@@ -135,58 +149,72 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🚀 FRONTEND TRADE MODAL SUBMIT - COMPREHENSIVE DEBUG');
+    console.log('Raw form data:', JSON.stringify(formData, null, 2));
+    
     if (!validateForm()) {
+      console.log('❌ Frontend validation failed:', errors);
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      console.log('=== FRONTEND TRADE MODAL DEBUG ===');
-      console.log('Form data before processing:', formData);
-      
-      const tradeData: Omit<Trade, 'id'> = {
+      // CRITICAL: Build payload with proper type casting and conditional fields
+      const baseTradeData = {
         symbol: formData.symbol.toUpperCase().trim(),
         type: formData.type,
-        entryPrice: parseFloat(formData.entryPrice),
-        exitPrice: formData.status === 'CLOSED' && formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
-        quantity: parseInt(formData.quantity),
+        entryPrice: Number(formData.entryPrice), // Ensure number type
+        quantity: Number(formData.quantity), // Ensure number type
         entryDate: formData.entryDate,
-        exitDate: formData.status === 'CLOSED' && formData.exitDate ? formData.exitDate : undefined,
         status: formData.status,
         notes: formData.notes.trim() || undefined
       };
 
-      console.log('Processed trade data:', tradeData);
-
-      // Additional validation before sending
-      if (tradeData.status === 'CLOSED') {
-        console.log('Validating closed trade:', {
-          exitPrice: tradeData.exitPrice,
-          exitDate: tradeData.exitDate,
-          hasExitPrice: tradeData.exitPrice !== undefined,
-          hasExitDate: tradeData.exitDate !== undefined
-        });
+      // CRITICAL: Only add exit fields if status is CLOSED and values exist
+      let tradeData: Omit<Trade, 'id'>;
+      
+      if (formData.status === 'CLOSED') {
+        console.log('🔒 Building CLOSED trade payload');
         
-        if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
-          setErrors({ exitPrice: 'Exit price is required for closed trades' });
-          console.log('Validation failed: exitPrice');
-          return;
+        // Validate exit fields one more time
+        if (!formData.exitPrice || formData.exitPrice.trim() === '') {
+          throw new Error('Exit price is required for closed trades');
         }
-        if (!tradeData.exitDate) {
-          setErrors({ exitDate: 'Exit date is required for closed trades' });
-          console.log('Validation failed: exitDate');
-          return;
+        if (!formData.exitDate || formData.exitDate.trim() === '') {
+          throw new Error('Exit date is required for closed trades');
         }
+        
+        const exitPrice = Number(formData.exitPrice);
+        if (isNaN(exitPrice) || exitPrice <= 0) {
+          throw new Error('Exit price must be a valid number greater than 0');
+        }
+        
+        tradeData = {
+          ...baseTradeData,
+          exitPrice: exitPrice, // Ensure number type
+          exitDate: formData.exitDate
+        };
+        
+        console.log('✅ CLOSED trade payload built:', JSON.stringify(tradeData, null, 2));
+      } else {
+        console.log('🔓 Building ACTIVE trade payload');
+        tradeData = {
+          ...baseTradeData,
+          // Explicitly exclude exit fields for active trades
+          exitPrice: undefined,
+          exitDate: undefined
+        };
+        
+        console.log('✅ ACTIVE trade payload built:', JSON.stringify(tradeData, null, 2));
       }
 
-      console.log('Final trade data being sent:', tradeData);
-      console.log('=== END FRONTEND TRADE MODAL DEBUG ===');
+      console.log('📤 Final payload being sent to onSave:', JSON.stringify(tradeData, null, 2));
       
       await onSave(tradeData);
       onClose();
     } catch (error: any) {
-      console.error('Trade save error:', error);
+      console.error('💥 Trade save error:', error);
       
       // Handle specific validation errors from backend
       if (error.errors && Array.isArray(error.errors)) {
@@ -197,13 +225,11 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
           }
         });
         setErrors(newErrors);
-      } else if (error.message.includes('Exit price is required')) {
-        setErrors({ exitPrice: 'Exit price is required for closed trades' });
-      } else if (error.message.includes('Exit date is required')) {
-        setErrors({ exitDate: 'Exit date is required for closed trades' });
+      } else if (error.message) {
+        // Show specific error message
+        setErrors({ general: error.message });
       } else {
-        // Show generic error
-        setErrors({ general: error.message || 'Failed to save trade' });
+        setErrors({ general: 'Failed to save trade' });
       }
     } finally {
       setIsSubmitting(false);
@@ -222,6 +248,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
   };
 
   const handleStatusChange = (newStatus: 'ACTIVE' | 'CLOSED') => {
+    console.log('📊 Status changed to:', newStatus);
     setFormData(prev => ({ 
       ...prev, 
       status: newStatus,

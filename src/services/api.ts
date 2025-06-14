@@ -55,7 +55,7 @@ class ApiService {
       
       // Debug: Log the request details in development
       if (import.meta.env.DEV) {
-        console.log('Making API request:', {
+        console.log('🌐 Making API request:', {
           url: `${API_BASE_URL}${url}`,
           method: options.method || 'GET',
           hasToken: !!localStorage.getItem('authToken'),
@@ -74,7 +74,7 @@ class ApiService {
       
       return await this.handleResponse(response);
     } catch (error) {
-      console.error(`API Request failed: ${url}`, error);
+      console.error(`💥 API Request failed: ${url}`, error);
       throw error;
     }
   }
@@ -155,18 +155,17 @@ class ApiService {
     return this.makeRequest('/auth/status');
   }
 
-  // Journal Entries (Trades)
+  // Journal Entries (Trades) - COMPREHENSIVE FIXES
   async getJournalEntries(params?: any) {
     const queryString = params ? new URLSearchParams(params).toString() : '';
     return this.makeRequest(`/journal-entries${queryString ? `?${queryString}` : ''}`);
   }
 
   async createJournalEntry(entryData: any) {
-    // Enhanced validation and logging
-    console.log('=== FRONTEND API CALL DEBUG ===');
-    console.log('Original entry data:', entryData);
+    console.log('🚀 API SERVICE - CREATE JOURNAL ENTRY - COMPREHENSIVE DEBUG');
+    console.log('📥 Raw entry data received:', JSON.stringify(entryData, null, 2));
     
-    // Validate required fields before sending
+    // CRITICAL: Validate required fields before sending
     if (!entryData.stockName || !entryData.stockName.trim()) {
       throw new Error('Stock name is required');
     }
@@ -180,56 +179,85 @@ class ApiService {
       throw new Error('Current price must be greater than 0');
     }
     
-    // Validate closed trade requirements
+    // CRITICAL: Validate closed trade requirements with detailed logging
     if (entryData.status === 'closed') {
-      if (!entryData.exitPrice && entryData.exitPrice !== 0) {
-        console.log('Frontend validation: exitPrice missing for closed trade');
+      console.log('🔒 Validating CLOSED trade requirements...');
+      console.log('Exit price check:', {
+        value: entryData.exitPrice,
+        type: typeof entryData.exitPrice,
+        isUndefined: entryData.exitPrice === undefined,
+        isNull: entryData.exitPrice === null,
+        isEmpty: entryData.exitPrice === '',
+        isZero: entryData.exitPrice === 0
+      });
+      
+      if (entryData.exitPrice === undefined || entryData.exitPrice === null || entryData.exitPrice === '') {
+        console.log('❌ API Service validation: exitPrice missing for closed trade');
         throw new Error('Exit price is required for closed trades');
       }
-      if (entryData.exitPrice <= 0) {
-        console.log('Frontend validation: exitPrice invalid:', entryData.exitPrice);
+      
+      const exitPriceNum = Number(entryData.exitPrice);
+      if (isNaN(exitPriceNum) || exitPriceNum <= 0) {
+        console.log('❌ API Service validation: exitPrice invalid:', entryData.exitPrice, 'converted:', exitPriceNum);
         throw new Error('Exit price must be greater than 0');
       }
-      if (!entryData.exitDate) {
-        console.log('Frontend validation: exitDate missing for closed trade');
+      
+      if (!entryData.exitDate || entryData.exitDate === '') {
+        console.log('❌ API Service validation: exitDate missing for closed trade');
         throw new Error('Exit date is required for closed trades');
       }
+      
+      console.log('✅ API Service validation: Closed trade requirements passed');
     }
 
-    // Ensure all numeric values are properly formatted
-    const cleanedData = {
-      stockName: entryData.stockName.trim(),
+    // CRITICAL: Build clean payload with proper type casting
+    const basePayload = {
+      stockName: String(entryData.stockName).trim(),
       entryPrice: Number(entryData.entryPrice),
-      entryDate: entryData.entryDate,
+      entryDate: String(entryData.entryDate),
       currentPrice: Number(entryData.currentPrice),
-      status: entryData.status,
-      remarks: entryData.remarks || '',
+      status: String(entryData.status).toLowerCase(), // Normalize to lowercase
+      remarks: entryData.remarks ? String(entryData.remarks).trim() : '',
       quantity: Number(entryData.quantity) || 1,
-      isTeamTrade: Boolean(entryData.isTeamTrade),
-      // Only include exit fields for closed trades
-      ...(entryData.status === 'closed' && {
-        exitPrice: Number(entryData.exitPrice),
-        exitDate: entryData.exitDate
-      })
+      isTeamTrade: Boolean(entryData.isTeamTrade)
     };
 
-    console.log('Cleaned data being sent:', cleanedData);
-    console.log('JSON stringified:', JSON.stringify(cleanedData));
-    console.log('=== END FRONTEND DEBUG ===');
+    // CRITICAL: Only include exit fields for closed trades
+    let cleanedPayload;
+    if (entryData.status === 'closed') {
+      cleanedPayload = {
+        ...basePayload,
+        exitPrice: Number(entryData.exitPrice),
+        exitDate: String(entryData.exitDate)
+      };
+      console.log('🔒 Built CLOSED trade payload with exit fields');
+    } else {
+      cleanedPayload = basePayload;
+      console.log('🔓 Built ACTIVE trade payload without exit fields');
+    }
+
+    console.log('📤 Final cleaned payload:', JSON.stringify(cleanedPayload, null, 2));
+    console.log('🔍 Payload validation check:');
+    console.log('- stockName:', cleanedPayload.stockName, typeof cleanedPayload.stockName);
+    console.log('- entryPrice:', cleanedPayload.entryPrice, typeof cleanedPayload.entryPrice);
+    console.log('- status:', cleanedPayload.status, typeof cleanedPayload.status);
+    if (cleanedPayload.exitPrice !== undefined) {
+      console.log('- exitPrice:', cleanedPayload.exitPrice, typeof cleanedPayload.exitPrice);
+      console.log('- exitDate:', cleanedPayload.exitDate, typeof cleanedPayload.exitDate);
+    }
     
     return this.makeRequest('/journal-entries', {
       method: 'POST',
-      body: JSON.stringify(cleanedData)
+      body: JSON.stringify(cleanedPayload)
     });
   }
 
   async updateJournalEntry(id: string, entryData: any) {
-    // Enhanced validation and logging
-    console.log('=== FRONTEND UPDATE API CALL DEBUG ===');
-    console.log('Entry ID:', id);
-    console.log('Original entry data:', entryData);
+    console.log('🔄 API SERVICE - UPDATE JOURNAL ENTRY - COMPREHENSIVE DEBUG');
+    console.log('🆔 Entry ID:', id);
+    console.log('📥 Raw entry data received:', JSON.stringify(entryData, null, 2));
     
-    // Validate required fields before sending
+    // CRITICAL: Validate required fields before sending
     if (!entryData.stockName || !entryData.stockName.trim()) {
       throw new Error('Stock name is required');
     }
@@ -243,46 +271,68 @@ class ApiService {
       throw new Error('Current price must be greater than 0');
     }
     
-    // Validate closed trade requirements
+    // CRITICAL: Validate closed trade requirements with detailed logging
     if (entryData.status === 'closed') {
-      if (!entryData.exitPrice && entryData.exitPrice !== 0) {
-        console.log('Frontend validation: exitPrice missing for closed trade');
+      console.log('🔒 Validating CLOSED trade requirements for update...');
+      console.log('Exit price check:', {
+        value: entryData.exitPrice,
+        type: typeof entryData.exitPrice,
+        isUndefined: entryData.exitPrice === undefined,
+        isNull: entryData.exitPrice === null,
+        isEmpty: entryData.exitPrice === '',
+        isZero: entryData.exitPrice === 0
+      });
+      
+      if (entryData.exitPrice === undefined || entryData.exitPrice === null || entryData.exitPrice === '') {
+        console.log('❌ API Service validation: exitPrice missing for closed trade');
         throw new Error('Exit price is required for closed trades');
       }
-      if (entryData.exitPrice <= 0) {
-        console.log('Frontend validation: exitPrice invalid:', entryData.exitPrice);
+      
+      const exitPriceNum = Number(entryData.exitPrice);
+      if (isNaN(exitPriceNum) || exitPriceNum <= 0) {
+        console.log('❌ API Service validation: exitPrice invalid:', entryData.exitPrice, 'converted:', exitPriceNum);
         throw new Error('Exit price must be greater than 0');
       }
-      if (!entryData.exitDate) {
-        console.log('Frontend validation: exitDate missing for closed trade');
+      
+      if (!entryData.exitDate || entryData.exitDate === '') {
+        console.log('❌ API Service validation: exitDate missing for closed trade');
         throw new Error('Exit date is required for closed trades');
       }
+      
+      console.log('✅ API Service validation: Closed trade requirements passed for update');
     }
 
-    // Ensure all numeric values are properly formatted
-    const cleanedData = {
-      stockName: entryData.stockName.trim(),
+    // CRITICAL: Build clean payload with proper type casting
+    const basePayload = {
+      stockName: String(entryData.stockName).trim(),
       entryPrice: Number(entryData.entryPrice),
-      entryDate: entryData.entryDate,
+      entryDate: String(entryData.entryDate),
       currentPrice: Number(entryData.currentPrice),
-      status: entryData.status,
-      remarks: entryData.remarks || '',
+      status: String(entryData.status).toLowerCase(), // Normalize to lowercase
+      remarks: entryData.remarks ? String(entryData.remarks).trim() : '',
       quantity: Number(entryData.quantity) || 1,
-      isTeamTrade: Boolean(entryData.isTeamTrade),
-      // Only include exit fields for closed trades
-      ...(entryData.status === 'closed' && {
-        exitPrice: Number(entryData.exitPrice),
-        exitDate: entryData.exitDate
-      })
+      isTeamTrade: Boolean(entryData.isTeamTrade)
     };
 
-    console.log('Cleaned data being sent:', cleanedData);
-    console.log('JSON stringified:', JSON.stringify(cleanedData));
-    console.log('=== END FRONTEND UPDATE DEBUG ===');
+    // CRITICAL: Only include exit fields for closed trades
+    let cleanedPayload;
+    if (entryData.status === 'closed') {
+      cleanedPayload = {
+        ...basePayload,
+        exitPrice: Number(entryData.exitPrice),
+        exitDate: String(entryData.exitDate)
+      };
+      console.log('🔒 Built CLOSED trade update payload with exit fields');
+    } else {
+      cleanedPayload = basePayload;
+      console.log('🔓 Built ACTIVE trade update payload without exit fields');
+    }
+
+    console.log('📤 Final cleaned update payload:', JSON.stringify(cleanedPayload, null, 2));
 
     return this.makeRequest(`/journal-entries/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(cleanedData)
+      body: JSON.stringify(cleanedPayload)
     });
   }
 

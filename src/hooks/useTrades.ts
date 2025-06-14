@@ -48,92 +48,133 @@ export function useTrades(userEmail?: string) {
 
   const addTrade = async (tradeData: Omit<Trade, 'id'>) => {
     try {
-      // Validate required fields for closed trades
+      console.log('🚀 FRONTEND HOOK - ADD TRADE - COMPREHENSIVE DEBUG');
+      console.log('📥 Raw trade data received:', JSON.stringify(tradeData, null, 2));
+      
+      // CRITICAL: Validate required fields for closed trades
       if (tradeData.status === 'CLOSED') {
+        console.log('🔒 Validating CLOSED trade requirements in hook...');
+        
         if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
+          console.log('❌ Hook validation failed: exitPrice invalid');
           throw new Error('Exit price is required and must be greater than 0 for closed trades');
         }
         if (!tradeData.exitDate) {
+          console.log('❌ Hook validation failed: exitDate missing');
           throw new Error('Exit date is required for closed trades');
         }
         // Validate exit date is after entry date
         if (new Date(tradeData.exitDate) < new Date(tradeData.entryDate)) {
+          console.log('❌ Hook validation failed: exitDate before entryDate');
           throw new Error('Exit date must be after entry date');
         }
+        
+        console.log('✅ Hook validation passed for CLOSED trade');
       }
 
-      // Transform frontend Trade to API JournalEntry format
-      const entryData = {
+      // CRITICAL: Transform frontend Trade to API JournalEntry format with proper handling
+      const baseEntryData = {
         stockName: tradeData.symbol.toUpperCase().trim(),
-        entryPrice: tradeData.entryPrice,
+        entryPrice: Number(tradeData.entryPrice),
         entryDate: tradeData.entryDate,
-        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
+        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? Number(tradeData.exitPrice) : Number(tradeData.entryPrice),
         status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
-        quantity: tradeData.quantity,
-        isTeamTrade: false,
-        // Include exit fields for closed trades
-        ...(tradeData.status === 'CLOSED' && {
-          exitPrice: tradeData.exitPrice,
-          exitDate: tradeData.exitDate
-        })
+        quantity: Number(tradeData.quantity),
+        isTeamTrade: false
       };
+
+      // CRITICAL: Only include exit fields for closed trades
+      let entryData;
+      if (tradeData.status === 'CLOSED') {
+        entryData = {
+          ...baseEntryData,
+          exitPrice: Number(tradeData.exitPrice),
+          exitDate: tradeData.exitDate
+        };
+        console.log('🔒 Built CLOSED trade entry data with exit fields');
+      } else {
+        entryData = baseEntryData;
+        console.log('🔓 Built ACTIVE trade entry data without exit fields');
+      }
       
-      console.log('Sending trade data to API:', entryData);
+      console.log('📤 Final entry data being sent to API:', JSON.stringify(entryData, null, 2));
       
       const response = await apiService.createJournalEntry(entryData);
       
       if (response.success) {
+        console.log('✅ Trade created successfully, reloading trades');
         await loadTrades(); // Reload from server
       }
     } catch (error) {
-      console.error('Add trade error:', error);
+      console.error('💥 Add trade error in hook:', error);
       throw error;
     }
   };
 
   const updateTrade = async (tradeId: string, tradeData: Omit<Trade, 'id'>) => {
     try {
-      // Validate required fields for closed trades
+      console.log('🔄 FRONTEND HOOK - UPDATE TRADE - COMPREHENSIVE DEBUG');
+      console.log('🆔 Trade ID:', tradeId);
+      console.log('📥 Raw trade data received:', JSON.stringify(tradeData, null, 2));
+      
+      // CRITICAL: Validate required fields for closed trades
       if (tradeData.status === 'CLOSED') {
+        console.log('🔒 Validating CLOSED trade requirements in hook...');
+        
         if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
+          console.log('❌ Hook validation failed: exitPrice invalid');
           throw new Error('Exit price is required and must be greater than 0 for closed trades');
         }
         if (!tradeData.exitDate) {
+          console.log('❌ Hook validation failed: exitDate missing');
           throw new Error('Exit date is required for closed trades');
         }
         // Validate exit date is after entry date
         if (new Date(tradeData.exitDate) < new Date(tradeData.entryDate)) {
+          console.log('❌ Hook validation failed: exitDate before entryDate');
           throw new Error('Exit date must be after entry date');
         }
+        
+        console.log('✅ Hook validation passed for CLOSED trade update');
       }
 
-      // Transform frontend Trade to API JournalEntry format
-      const entryData = {
+      // CRITICAL: Transform frontend Trade to API JournalEntry format
+      const baseEntryData = {
         stockName: tradeData.symbol.toUpperCase().trim(),
-        entryPrice: tradeData.entryPrice,
+        entryPrice: Number(tradeData.entryPrice),
         entryDate: tradeData.entryDate,
-        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
+        currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? Number(tradeData.exitPrice) : Number(tradeData.entryPrice),
         status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
-        quantity: tradeData.quantity,
-        isTeamTrade: false,
-        // Include exit fields for closed trades
-        ...(tradeData.status === 'CLOSED' && {
-          exitPrice: tradeData.exitPrice,
-          exitDate: tradeData.exitDate
-        })
+        quantity: Number(tradeData.quantity),
+        isTeamTrade: false
       };
+
+      // CRITICAL: Only include exit fields for closed trades
+      let entryData;
+      if (tradeData.status === 'CLOSED') {
+        entryData = {
+          ...baseEntryData,
+          exitPrice: Number(tradeData.exitPrice),
+          exitDate: tradeData.exitDate
+        };
+        console.log('🔒 Built CLOSED trade update entry data with exit fields');
+      } else {
+        entryData = baseEntryData;
+        console.log('🔓 Built ACTIVE trade update entry data without exit fields');
+      }
       
-      console.log('Updating trade with data:', entryData);
+      console.log('📤 Final update entry data being sent to API:', JSON.stringify(entryData, null, 2));
       
       const response = await apiService.updateJournalEntry(tradeId, entryData);
       
       if (response.success) {
+        console.log('✅ Trade updated successfully, reloading trades');
         await loadTrades(); // Reload from server
       }
     } catch (error) {
-      console.error('Update trade error:', error);
+      console.error('💥 Update trade error in hook:', error);
       throw error;
     }
   };
