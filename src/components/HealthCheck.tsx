@@ -142,7 +142,7 @@ export default function HealthCheck() {
                 <div className="text-xs text-red-600 bg-red-50 p-2 rounded border">
                   {error}
                 </div>
-                {error.includes('HTML instead of JSON') && (
+                {(error.includes('Failed to fetch') || error.includes('HTML instead of JSON')) && (
                   <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded border flex items-start space-x-2">
                     <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     <div>
