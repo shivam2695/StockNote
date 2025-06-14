@@ -2,12 +2,6 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters']
-  },
   email: {
     type: String,
     required: [true, 'Email is required'],
@@ -16,13 +10,19 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
   },
+  name: {
+    type: String,
+    required: [true, 'Name is required'],
+    trim: true,
+    maxlength: [50, 'Name cannot exceed 50 characters']
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false // Don't include password in queries by default
   },
-  isEmailVerified: {
+  verified: {
     type: Boolean,
     default: false
   },
@@ -94,13 +94,13 @@ userSchema.methods.generatePasswordResetToken = function() {
   return token;
 };
 
-// Virtual for user's full profile
+// Virtual for user's profile
 userSchema.virtual('profile').get(function() {
   return {
     id: this._id,
     name: this.name,
     email: this.email,
-    isEmailVerified: this.isEmailVerified,
+    verified: this.verified,
     lastLogin: this.lastLogin,
     createdAt: this.createdAt
   };

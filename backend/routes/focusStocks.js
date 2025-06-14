@@ -1,27 +1,56 @@
 const express = require('express');
 const FocusStock = require('../models/FocusStock');
 const auth = require('../middleware/auth');
-const { validateFocusStock } = require('../middleware/validation');
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
+
+// Validation middleware
+const validateFocusStock = [
+  body('stockName')
+    .trim()
+    .isLength({ min: 1, max: 20 })
+    .withMessage('Stock name must be between 1 and 20 characters'),
+  body('entryPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Entry price must be a positive number'),
+  body('targetPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Target price must be a positive number'),
+  body('stopLossPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Stop loss price must be a positive number'),
+  body('currentPrice')
+    .isFloat({ min: 0 })
+    .withMessage('Current price must be a positive number'),
+  body('reason')
+    .optional()
+    .isLength({ max: 200 })
+    .withMessage('Reason cannot exceed 200 characters'),
+  body('notes')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('Notes cannot exceed 500 characters')
+];
 
 // @route   GET /api/focus-stocks
 // @desc    Get all focus stocks for authenticated user
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const { page = 1, limit = 50, tradeTaken, symbol, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { page = 1, limit = 50, status, stockName, tradeTaken, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     
     // Build filter
     const filter = { user: req.user._id };
+    if (status) filter.status = status;
+    if (stockName) filter.stockName = stockName.toUpperCase();
     if (tradeTaken !== undefined) filter.tradeTaken = tradeTaken === 'true';
-    if (symbol) filter.symbol = symbol.toUpperCase();
     
     // Build sort
     const sort = {};
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
     
-    const focusStocks = await FocusStock.find(filter)
+    const stocks = await FocusStock.find(filter)
       .sort(sort)
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -32,7 +61,7 @@ router.get('/', auth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        focusStocks,
+        stocks,
         pagination: {
           current: page,
           pages: Math.ceil(total / limit),
@@ -55,7 +84,6 @@ router.get('/', auth, async (req, res) => {
 router.get('/stats', auth, async (req, res) => {
   try {
     const stats = await FocusStock.getUserFocusStats(req.user._id);
-    
     res.json({
       success: true,
       data: stats
@@ -74,14 +102,14 @@ router.get('/stats', auth, async (req, res) => {
 // @access  Private
 router.get('/pending', auth, async (req, res) => {
   try {
-    const focusStocks = await FocusStock.find({
+    const stocks = await FocusStock.find({
       user: req.user._id,
       tradeTaken: false
     }).sort({ createdAt: -1 });
     
     res.json({
       success: true,
-      data: { focusStocks }
+      data: { stocks }
     });
   } catch (error) {
     console.error('Get pending focus stocks error:', error);
@@ -92,40 +120,17 @@ router.get('/pending', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/focus-stocks/taken
-// @desc    Get taken focus stocks (converted to trades)
-// @access  Private
-router.get('/taken', auth, async (req, res) => {
-  try {
-    const focusStocks = await FocusStock.find({
-      user: req.user._id,
-      tradeTaken: true
-    }).sort({ tradeDate: -1 });
-    
-    res.json({
-      success: true,
-      data: { focusStocks }
-    });
-  } catch (error) {
-    console.error('Get taken focus stocks error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching taken focus stocks'
-    });
-  }
-});
-
 // @route   GET /api/focus-stocks/:id
 // @desc    Get single focus stock
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
   try {
-    const focusStock = await FocusStock.findOne({
+    const stock = await FocusStock.findOne({
       _id: req.params.id,
       user: req.user._id
     });
     
-    if (!focusStock) {
+    if (!stock) {
       return res.status(404).json({
         success: false,
         message: 'Focus stock not found'
@@ -134,7 +139,7 @@ router.get('/:id', auth, async (req, res) => {
     
     res.json({
       success: true,
-      data: { focusStock }
+      data: { stock }
     });
   } catch (error) {
     console.error('Get focus stock error:', error);
@@ -150,19 +155,28 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.post('/', auth, validateFocusStock, async (req, res) => {
   try {
-    const focusStockData = {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const stockData = {
       ...req.body,
       user: req.user._id,
-      symbol: req.body.symbol.toUpperCase()
+      stockName: req.body.stockName.toUpperCase()
     };
     
-    const focusStock = new FocusStock(focusStockData);
-    await focusStock.save();
+    const stock = new FocusStock(stockData);
+    await stock.save();
     
     res.status(201).json({
       success: true,
       message: 'Focus stock created successfully',
-      data: { focusStock }
+      data: { stock }
     });
   } catch (error) {
     console.error('Create focus stock error:', error);
@@ -178,18 +192,27 @@ router.post('/', auth, validateFocusStock, async (req, res) => {
 // @access  Private
 router.put('/:id', auth, validateFocusStock, async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
     const updateData = {
       ...req.body,
-      symbol: req.body.symbol.toUpperCase()
+      stockName: req.body.stockName.toUpperCase()
     };
     
-    const focusStock = await FocusStock.findOneAndUpdate(
+    const stock = await FocusStock.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
       updateData,
       { new: true, runValidators: true }
     );
     
-    if (!focusStock) {
+    if (!stock) {
       return res.status(404).json({
         success: false,
         message: 'Focus stock not found'
@@ -199,7 +222,7 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
     res.json({
       success: true,
       message: 'Focus stock updated successfully',
-      data: { focusStock }
+      data: { stock }
     });
   } catch (error) {
     console.error('Update focus stock error:', error);
@@ -217,7 +240,7 @@ router.patch('/:id/mark-taken', auth, async (req, res) => {
   try {
     const { tradeTaken, tradeDate } = req.body;
     
-    const focusStock = await FocusStock.findOneAndUpdate(
+    const stock = await FocusStock.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
       { 
         tradeTaken: tradeTaken !== undefined ? tradeTaken : true,
@@ -226,7 +249,7 @@ router.patch('/:id/mark-taken', auth, async (req, res) => {
       { new: true, runValidators: true }
     );
     
-    if (!focusStock) {
+    if (!stock) {
       return res.status(404).json({
         success: false,
         message: 'Focus stock not found'
@@ -236,7 +259,7 @@ router.patch('/:id/mark-taken', auth, async (req, res) => {
     res.json({
       success: true,
       message: `Focus stock marked as ${tradeTaken ? 'taken' : 'pending'}`,
-      data: { focusStock }
+      data: { stock }
     });
   } catch (error) {
     console.error('Mark focus stock taken error:', error);
@@ -252,12 +275,12 @@ router.patch('/:id/mark-taken', auth, async (req, res) => {
 // @access  Private
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const focusStock = await FocusStock.findOneAndDelete({
+    const stock = await FocusStock.findOneAndDelete({
       _id: req.params.id,
       user: req.user._id
     });
     
-    if (!focusStock) {
+    if (!stock) {
       return res.status(404).json({
         success: false,
         message: 'Focus stock not found'

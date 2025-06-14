@@ -7,48 +7,62 @@ const focusStockSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  symbol: {
+  stockName: {
     type: String,
-    required: [true, 'Stock symbol is required'],
+    required: [true, 'Stock name is required'],
     uppercase: true,
     trim: true,
-    maxlength: [10, 'Symbol cannot exceed 10 characters']
+    maxlength: [20, 'Stock name cannot exceed 20 characters']
+  },
+  entryPrice: {
+    type: Number,
+    required: [true, 'Entry price is required'],
+    min: [0, 'Entry price must be positive']
   },
   targetPrice: {
     type: Number,
     required: [true, 'Target price is required'],
     min: [0, 'Target price must be positive']
   },
+  stopLossPrice: {
+    type: Number,
+    required: [true, 'Stop loss price is required'],
+    min: [0, 'Stop loss price must be positive']
+  },
   currentPrice: {
     type: Number,
     required: [true, 'Current price is required'],
     min: [0, 'Current price must be positive']
   },
+  status: {
+    type: String,
+    required: true,
+    enum: {
+      values: ['green', 'red', 'neutral'],
+      message: 'Status must be green, red, or neutral'
+    },
+    default: 'neutral'
+  },
+  month: {
+    type: String,
+    required: true
+  },
+  year: {
+    type: Number,
+    required: true
+  },
+  // Additional fields for better tracking
   reason: {
     type: String,
-    required: [true, 'Reason for focus is required'],
-    trim: true,
-    maxlength: [200, 'Reason cannot exceed 200 characters']
-  },
-  dateAdded: {
-    type: Date,
-    required: true,
-    default: Date.now
+    maxlength: [200, 'Reason cannot exceed 200 characters'],
+    trim: true
   },
   tradeTaken: {
     type: Boolean,
     default: false
   },
   tradeDate: {
-    type: Date,
-    validate: {
-      validator: function(value) {
-        if (this.tradeTaken && !value) return false;
-        if (value && this.dateAdded && value < this.dateAdded) return false;
-        return true;
-      },
-      message: 'Trade date must be after date added and is required when trade is taken'
-    }
+    type: Date
   },
   notes: {
     type: String,
@@ -61,6 +75,9 @@ const focusStockSchema = new mongoose.Schema({
   },
   potentialReturnPercentage: {
     type: Number
+  },
+  riskRewardRatio: {
+    type: Number
   }
 }, {
   timestamps: true,
@@ -70,13 +87,36 @@ const focusStockSchema = new mongoose.Schema({
 
 // Indexes for better performance
 focusStockSchema.index({ user: 1, createdAt: -1 });
-focusStockSchema.index({ user: 1, symbol: 1 });
+focusStockSchema.index({ user: 1, stockName: 1 });
+focusStockSchema.index({ user: 1, status: 1 });
+focusStockSchema.index({ user: 1, month: 1, year: 1 });
 focusStockSchema.index({ user: 1, tradeTaken: 1 });
 
-// Calculate potential returns before saving
+// Calculate derived fields before saving
 focusStockSchema.pre('save', function(next) {
-  this.potentialReturn = this.targetPrice - this.currentPrice;
-  this.potentialReturnPercentage = ((this.targetPrice - this.currentPrice) / this.currentPrice) * 100;
+  // Auto-generate month and year from current date
+  const currentDate = new Date();
+  this.month = currentDate.toLocaleDateString('en-US', { month: 'long' });
+  this.year = currentDate.getFullYear();
+  
+  // Calculate potential return
+  this.potentialReturn = this.targetPrice - this.entryPrice;
+  this.potentialReturnPercentage = ((this.targetPrice - this.entryPrice) / this.entryPrice) * 100;
+  
+  // Calculate risk-reward ratio
+  const risk = this.entryPrice - this.stopLossPrice;
+  const reward = this.targetPrice - this.entryPrice;
+  this.riskRewardRatio = risk > 0 ? reward / risk : 0;
+  
+  // Auto-determine status based on current price
+  if (this.currentPrice >= this.targetPrice) {
+    this.status = 'green';
+  } else if (this.currentPrice <= this.stopLossPrice) {
+    this.status = 'red';
+  } else {
+    this.status = 'neutral';
+  }
+  
   next();
 });
 
@@ -103,9 +143,19 @@ focusStockSchema.statics.getUserFocusStats = async function(userId) {
         takenStocks: {
           $sum: { $cond: [{ $eq: ['$tradeTaken', true] }, 1, 0] }
         },
+        greenStocks: {
+          $sum: { $cond: [{ $eq: ['$status', 'green'] }, 1, 0] }
+        },
+        redStocks: {
+          $sum: { $cond: [{ $eq: ['$status', 'red'] }, 1, 0] }
+        },
+        neutralStocks: {
+          $sum: { $cond: [{ $eq: ['$status', 'neutral'] }, 1, 0] }
+        },
         averagePotentialReturn: {
           $avg: { $cond: [{ $eq: ['$tradeTaken', false] }, '$potentialReturnPercentage', null] }
-        }
+        },
+        averageRiskReward: { $avg: '$riskRewardRatio' }
       }
     }
   ]);
@@ -114,7 +164,11 @@ focusStockSchema.statics.getUserFocusStats = async function(userId) {
     totalFocusStocks: 0,
     pendingStocks: 0,
     takenStocks: 0,
-    averagePotentialReturn: 0
+    greenStocks: 0,
+    redStocks: 0,
+    neutralStocks: 0,
+    averagePotentialReturn: 0,
+    averageRiskReward: 0
   };
   
   // Calculate conversion rate

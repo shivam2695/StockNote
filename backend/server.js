@@ -8,8 +8,11 @@ require('dotenv').config();
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const tradeRoutes = require('./routes/trades');
+const journalEntryRoutes = require('./routes/journalEntries');
 const focusStockRoutes = require('./routes/focusStocks');
+const bookRoutes = require('./routes/books');
+const teamRoutes = require('./routes/teams');
+const teamTradeRoutes = require('./routes/teamTrades');
 const userRoutes = require('./routes/users');
 
 const app = express();
@@ -19,36 +22,60 @@ app.use(helmet());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
 // CORS configuration
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://stocknote.netlify.app', 'https://your-custom-domain.com']
-    : ['http://localhost:3000', 'http://localhost:5173'],
+    ? [
+        'https://stocknote.netlify.app', 
+        'https://your-custom-domain.com',
+        process.env.FRONTEND_URL
+      ].filter(Boolean)
+    : [
+        'http://localhost:3000', 
+        'http://localhost:5173',
+        process.env.FRONTEND_URL || 'http://localhost:5173'
+      ].filter(Boolean),
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 app.use(cors(corsOptions));
 
 // Logging
-app.use(morgan('combined'));
+if (process.env.NODE_ENV === 'production') {
+  app.use(morgan('combined'));
+} else {
+  app.use(morgan('dev'));
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stocknote', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stocknote', {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+connectDB();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -56,14 +83,18 @@ app.get('/health', (req, res) => {
     status: 'OK',
     message: 'StockNote Backend is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    version: '2.0.0'
   });
 });
 
 // API routes
 app.use('/api/auth', authRoutes);
-app.use('/api/trades', tradeRoutes);
+app.use('/api/journal-entries', journalEntryRoutes);
 app.use('/api/focus-stocks', focusStockRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/teams', teamRoutes);
+app.use('/api/team-trades', teamTradeRoutes);
 app.use('/api/users', userRoutes);
 
 // 404 handler
@@ -71,7 +102,8 @@ app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    method: req.method
   });
 });
 
@@ -89,6 +121,15 @@ app.use((err, req, res, next) => {
     });
   }
   
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(400).json({
+      success: false,
+      message: `${field} already exists`
+    });
+  }
+  
   // JWT error
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
@@ -97,11 +138,47 @@ app.use((err, req, res, next) => {
     });
   }
   
+  // JWT expired error
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Token expired'
+    });
+  }
+  
+  // Mongoose cast error
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid ID format'
+    });
+  }
+  
   // Default error
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    ...(process.env.NODE_ENV === 'development' && { 
+      stack: err.stack,
+      error: err 
+    })
+  });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  mongoose.connection.close(() => {
+    console.log('MongoDB connection closed.');
+    process.exit(0);
   });
 });
 
@@ -111,6 +188,7 @@ app.listen(PORT, () => {
   console.log(`🚀 StockNote Backend running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
 });
 
 module.exports = app;

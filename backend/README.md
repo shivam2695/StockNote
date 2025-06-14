@@ -1,34 +1,64 @@
-# StockNote Backend API
+# StockNote Backend API v2.0
 
-A comprehensive REST API for the StockNote Trading Journal application built with Node.js, Express.js, and MongoDB.
+A comprehensive REST API for the StockNote Trading Journal application built with Node.js, Express.js, and MongoDB. This backend supports individual trading journals, team trading, focus stocks management, and book recommendations.
 
 ## 🚀 Features
 
-### Authentication & Security
-- ✅ JWT-based authentication
-- ✅ Email verification with OTP
-- ✅ Password reset functionality
-- ✅ Rate limiting and security headers
-- ✅ Input validation and sanitization
-- ✅ CORS configuration
+### Core Collections
 
-### Trading Management
-- ✅ CRUD operations for trades
-- ✅ Trade statistics and analytics
-- ✅ Monthly trade filtering
-- ✅ Portfolio performance tracking
+#### 1. **Users**
+- User authentication and profile management
+- Email verification system
+- Password reset functionality
+- User activity tracking
 
-### Focus Stocks
-- ✅ Watchlist management
-- ✅ Target price tracking
-- ✅ Trade conversion monitoring
-- ✅ Performance analytics
+#### 2. **Journal Entries**
+- Individual trade tracking
+- Automatic P&L calculations
+- Monthly performance analytics
+- Team trade integration
+- Status management (open/closed)
 
-### User Management
-- ✅ Profile management
-- ✅ Password change
-- ✅ Account deletion
-- ✅ Dashboard data aggregation
+#### 3. **Focus Stocks**
+- Watchlist management
+- Target price tracking
+- Risk-reward ratio calculations
+- Trade conversion monitoring
+- Status indicators (green/red/neutral)
+
+#### 4. **Books**
+- Trading book recommendations
+- User ratings and reviews
+- Search and filtering capabilities
+- Popular books tracking
+
+#### 5. **Teams**
+- Team creation and management
+- Member role management (admin/member/viewer)
+- Team statistics and analytics
+- Privacy settings
+
+#### 6. **Team Trades**
+- Collaborative trading decisions
+- Voting system for trades
+- Team performance tracking
+- Strategy documentation
+
+### 🔐 Security Features
+- JWT-based authentication
+- Password hashing with bcrypt
+- Rate limiting
+- Input validation and sanitization
+- CORS configuration
+- Security headers with Helmet
+
+### 📊 Analytics & Reporting
+- User trading statistics
+- Team performance metrics
+- Monthly performance tracking
+- P&L calculations
+- Win rate analysis
+- Risk-reward ratios
 
 ## 📋 Prerequisites
 
@@ -59,7 +89,7 @@ cp .env.example .env
 # Database
 MONGODB_URI=mongodb://localhost:27017/stocknote
 
-# JWT Secret (generate a strong secret)
+# JWT Secret
 JWT_SECRET=your-super-secret-jwt-key-here
 
 # Email Configuration
@@ -68,9 +98,10 @@ EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
 
-# Environment
+# Server Configuration
 NODE_ENV=development
 PORT=5000
+FRONTEND_URL=http://localhost:5173
 ```
 
 5. **Start the server**
@@ -104,17 +135,6 @@ Content-Type: application/json
 }
 ```
 
-#### Verify Email
-```http
-POST /api/auth/verify-email
-Content-Type: application/json
-
-{
-  "email": "john@example.com",
-  "token": "123456"
-}
-```
-
 #### Login
 ```http
 POST /api/auth/login
@@ -126,95 +146,50 @@ Content-Type: application/json
 }
 ```
 
-#### Forgot Password
+### Journal Entries Endpoints
+
+#### Get All Journal Entries
 ```http
-POST /api/auth/forgot-password
-Content-Type: application/json
-
-{
-  "email": "john@example.com"
-}
-```
-
-#### Reset Password
-```http
-POST /api/auth/reset-password
-Content-Type: application/json
-
-{
-  "email": "john@example.com",
-  "token": "123456",
-  "newPassword": "newpassword123"
-}
-```
-
-### Trade Endpoints
-
-#### Get All Trades
-```http
-GET /api/trades
+GET /api/journal-entries
 Authorization: Bearer <token>
+Query Parameters:
+- page: Page number (default: 1)
+- limit: Items per page (default: 50)
+- status: Filter by status (open/closed)
+- stockName: Filter by stock name
+- month: Filter by month
+- year: Filter by year
 ```
 
-#### Get Trade Statistics
+#### Create Journal Entry
 ```http
-GET /api/trades/stats
-Authorization: Bearer <token>
-```
-
-#### Create Trade
-```http
-POST /api/trades
+POST /api/journal-entries
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "symbol": "AAPL",
-  "type": "BUY",
+  "stockName": "AAPL",
   "entryPrice": 150.00,
-  "quantity": 10,
   "entryDate": "2024-01-15",
-  "status": "ACTIVE",
-  "notes": "Strong technical setup"
+  "currentPrice": 155.00,
+  "status": "open",
+  "remarks": "Strong technical setup",
+  "quantity": 10,
+  "isTeamTrade": false
 }
 ```
 
-#### Update Trade
+#### Get Journal Statistics
 ```http
-PUT /api/trades/:id
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "symbol": "AAPL",
-  "type": "BUY",
-  "entryPrice": 150.00,
-  "exitPrice": 160.00,
-  "quantity": 10,
-  "entryDate": "2024-01-15",
-  "exitDate": "2024-01-20",
-  "status": "CLOSED",
-  "notes": "Profit target reached"
-}
-```
-
-#### Delete Trade
-```http
-DELETE /api/trades/:id
+GET /api/journal-entries/stats
 Authorization: Bearer <token>
 ```
 
-### Focus Stock Endpoints
+### Focus Stocks Endpoints
 
 #### Get All Focus Stocks
 ```http
 GET /api/focus-stocks
-Authorization: Bearer <token>
-```
-
-#### Get Focus Stock Statistics
-```http
-GET /api/focus-stocks/stats
 Authorization: Bearer <token>
 ```
 
@@ -225,75 +200,271 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "symbol": "TSLA",
+  "stockName": "TSLA",
+  "entryPrice": 200.00,
   "targetPrice": 250.00,
-  "currentPrice": 200.00,
+  "stopLossPrice": 180.00,
+  "currentPrice": 205.00,
   "reason": "Earnings play",
-  "dateAdded": "2024-01-15",
   "notes": "Strong fundamentals"
 }
 ```
 
-#### Mark Trade Taken
+### Team Endpoints
+
+#### Get User Teams
 ```http
-PATCH /api/focus-stocks/:id/mark-taken
+GET /api/teams
+Authorization: Bearer <token>
+```
+
+#### Create Team
+```http
+POST /api/teams
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "tradeTaken": true,
-  "tradeDate": "2024-01-20"
+  "name": "Alpha Traders",
+  "description": "Professional trading team",
+  "settings": {
+    "isPrivate": false,
+    "allowMemberInvites": true,
+    "requireApproval": false
+  }
 }
 ```
 
-### User Endpoints
-
-#### Get Profile
+#### Add Team Member
 ```http
-GET /api/users/profile
-Authorization: Bearer <token>
-```
-
-#### Update Profile
-```http
-PUT /api/users/profile
+POST /api/teams/:id/members
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "name": "John Smith",
-  "email": "johnsmith@example.com"
+  "userEmail": "member@example.com",
+  "role": "member"
 }
 ```
 
-#### Change Password
+### Team Trades Endpoints
+
+#### Get Team Trades
 ```http
-PUT /api/users/change-password
+GET /api/team-trades/team/:teamId
+Authorization: Bearer <token>
+```
+
+#### Create Team Trade
+```http
+POST /api/team-trades
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "currentPassword": "oldpassword",
-  "newPassword": "newpassword123",
-  "confirmPassword": "newpassword123"
+  "team": "team_id_here",
+  "stockName": "GOOGL",
+  "entryPrice": 2800.00,
+  "entryDate": "2024-01-15",
+  "remarks": "AI momentum play",
+  "strategy": "Momentum",
+  "riskLevel": "medium",
+  "targetPrice": 3000.00,
+  "stopLoss": 2700.00
 }
 ```
 
-#### Get Dashboard Data
+#### Vote on Team Trade
 ```http
-GET /api/users/dashboard
+POST /api/team-trades/:id/vote
 Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "vote": "buy",
+  "comment": "Strong technical indicators"
+}
+```
+
+### Books Endpoints
+
+#### Get All Books
+```http
+GET /api/books
+Query Parameters:
+- page: Page number
+- limit: Items per page
+- genre: Filter by genre
+- minRating: Minimum rating filter
+- search: Search query
+```
+
+#### Rate a Book
+```http
+POST /api/books/:id/rate
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "rating": 4.5,
+  "review": "Excellent trading strategies"
+}
+```
+
+## 🗃️ Database Schema
+
+### User Model
+```javascript
+{
+  email: String (unique, required),
+  name: String (required),
+  password: String (hashed, required),
+  verified: Boolean (default: false),
+  lastLogin: Date,
+  isActive: Boolean (default: true),
+  timestamps: true
+}
+```
+
+### Journal Entry Model
+```javascript
+{
+  user: ObjectId (ref: User, required),
+  stockName: String (required, uppercase),
+  entryPrice: Number (required, min: 0),
+  entryDate: Date (required),
+  currentPrice: Number (required, min: 0),
+  pnl: Number (calculated),
+  pnlPercentage: Number (calculated),
+  status: String (enum: ['open', 'closed']),
+  remarks: String (max: 500),
+  isTeamTrade: Boolean (default: false),
+  month: String (auto-generated),
+  year: Number (auto-generated),
+  quantity: Number (default: 1),
+  exitPrice: Number,
+  exitDate: Date,
+  timestamps: true
+}
+```
+
+### Focus Stock Model
+```javascript
+{
+  user: ObjectId (ref: User, required),
+  stockName: String (required, uppercase),
+  entryPrice: Number (required, min: 0),
+  targetPrice: Number (required, min: 0),
+  stopLossPrice: Number (required, min: 0),
+  currentPrice: Number (required, min: 0),
+  status: String (enum: ['green', 'red', 'neutral']),
+  month: String (auto-generated),
+  year: Number (auto-generated),
+  reason: String (max: 200),
+  tradeTaken: Boolean (default: false),
+  tradeDate: Date,
+  notes: String (max: 500),
+  potentialReturn: Number (calculated),
+  potentialReturnPercentage: Number (calculated),
+  riskRewardRatio: Number (calculated),
+  timestamps: true
+}
+```
+
+### Team Model
+```javascript
+{
+  name: String (required, unique),
+  description: String (max: 500),
+  members: [{
+    user: ObjectId (ref: User),
+    role: String (enum: ['admin', 'member', 'viewer']),
+    joinedAt: Date,
+    isActive: Boolean
+  }],
+  createdBy: ObjectId (ref: User, required),
+  isActive: Boolean (default: true),
+  settings: {
+    isPrivate: Boolean,
+    allowMemberInvites: Boolean,
+    requireApproval: Boolean
+  },
+  stats: {
+    totalTrades: Number,
+    totalPnL: Number,
+    winRate: Number
+  },
+  timestamps: true
+}
+```
+
+### Team Trade Model
+```javascript
+{
+  team: ObjectId (ref: Team, required),
+  stockName: String (required, uppercase),
+  entryPrice: Number (required, min: 0),
+  entryDate: Date (required),
+  remarks: String (max: 500),
+  currentPrice: Number,
+  quantity: Number (default: 1),
+  status: String (enum: ['open', 'closed']),
+  exitPrice: Number,
+  exitDate: Date,
+  pnl: Number (calculated),
+  pnlPercentage: Number (calculated),
+  createdBy: ObjectId (ref: User, required),
+  strategy: String (max: 100),
+  riskLevel: String (enum: ['low', 'medium', 'high']),
+  targetPrice: Number,
+  stopLoss: Number,
+  votes: [{
+    user: ObjectId (ref: User),
+    vote: String (enum: ['buy', 'sell', 'hold']),
+    votedAt: Date,
+    comment: String (max: 200)
+  }],
+  month: String (auto-generated),
+  year: Number (auto-generated),
+  timestamps: true
+}
+```
+
+### Book Model
+```javascript
+{
+  title: String (required, max: 200),
+  summary: String (required, max: 2000),
+  coverImage: String (required),
+  author: String (max: 100),
+  isbn: String (unique, sparse),
+  publishedDate: Date,
+  genre: String (max: 50),
+  rating: Number (min: 0, max: 5),
+  totalRatings: Number (default: 0),
+  isActive: Boolean (default: true),
+  tags: [String],
+  readBy: [{
+    user: ObjectId (ref: User),
+    dateRead: Date,
+    userRating: Number (min: 0, max: 5),
+    userReview: String (max: 1000)
+  }],
+  timestamps: true
+}
 ```
 
 ## 🔧 Configuration
 
 ### MongoDB Setup
-1. **Local MongoDB**: Install MongoDB locally or use MongoDB Atlas
-2. **Connection String**: Update `MONGODB_URI` in `.env`
+1. **Local MongoDB**: Install MongoDB locally
+2. **MongoDB Atlas**: Use cloud MongoDB service
+3. **Connection String**: Update `MONGODB_URI` in `.env`
 
 ### Email Configuration
 1. **Gmail**: Use App Passwords for Gmail SMTP
-2. **Other Providers**: Configure SMTP settings accordingly
+2. **SendGrid**: Configure SendGrid API
+3. **Other Providers**: Configure SMTP settings
 
 ### JWT Configuration
 1. **Secret**: Generate a strong JWT secret
@@ -317,84 +488,10 @@ EMAIL_PORT=587
 EMAIL_USER=your-production-email@gmail.com
 EMAIL_PASS=your-production-app-password
 PORT=5000
+FRONTEND_URL=https://stocknote.netlify.app
 ```
 
-## 📊 Database Schema
-
-### User Model
-```javascript
-{
-  name: String,
-  email: String (unique),
-  password: String (hashed),
-  isEmailVerified: Boolean,
-  lastLogin: Date,
-  isActive: Boolean,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### Trade Model
-```javascript
-{
-  user: ObjectId (ref: User),
-  symbol: String,
-  type: String (BUY/SELL),
-  entryPrice: Number,
-  exitPrice: Number,
-  quantity: Number,
-  entryDate: Date,
-  exitDate: Date,
-  status: String (ACTIVE/CLOSED),
-  notes: String,
-  totalInvestment: Number,
-  totalReturn: Number,
-  returnPercentage: Number,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-### FocusStock Model
-```javascript
-{
-  user: ObjectId (ref: User),
-  symbol: String,
-  targetPrice: Number,
-  currentPrice: Number,
-  reason: String,
-  dateAdded: Date,
-  tradeTaken: Boolean,
-  tradeDate: Date,
-  notes: String,
-  potentialReturn: Number,
-  potentialReturnPercentage: Number,
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
-## 🔒 Security Features
-
-- **Helmet**: Security headers
-- **Rate Limiting**: Prevent abuse
-- **CORS**: Cross-origin resource sharing
-- **Input Validation**: Express-validator
-- **Password Hashing**: bcryptjs
-- **JWT Authentication**: Secure token-based auth
-
-## 🧪 Testing
-
-```bash
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-## 📝 API Response Format
+## 📊 API Response Format
 
 ### Success Response
 ```json
@@ -418,6 +515,38 @@ npm run test:coverage
 }
 ```
 
+## 🧪 Testing
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+## 🔒 Security Features
+
+- **Helmet**: Security headers
+- **Rate Limiting**: Prevent abuse
+- **CORS**: Cross-origin resource sharing
+- **Input Validation**: Express-validator
+- **Password Hashing**: bcryptjs with salt rounds
+- **JWT Authentication**: Secure token-based auth
+- **MongoDB Injection Protection**: Mongoose sanitization
+
+## 📈 Performance Features
+
+- **Database Indexing**: Optimized queries
+- **Pagination**: Efficient data loading
+- **Aggregation Pipelines**: Complex analytics
+- **Caching**: Redis integration ready
+- **Compression**: Response compression
+- **Connection Pooling**: MongoDB connection optimization
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -438,9 +567,11 @@ For support or questions:
 
 ## 🔄 Version History
 
-- **v1.0.0**: Initial release with core features
-- Authentication system
-- Trading journal management
-- Focus stocks tracking
-- User management
-- Email notifications
+- **v2.0.0**: Complete backend with all collections
+  - Journal Entries management
+  - Focus Stocks tracking
+  - Team collaboration features
+  - Book recommendations
+  - Enhanced security and validation
+  - Comprehensive analytics
+  - Team trading with voting system
