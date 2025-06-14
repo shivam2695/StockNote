@@ -5,6 +5,8 @@ const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
+    console.log('Auth middleware - Token received:', token ? 'Yes' : 'No');
+    
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -13,6 +15,8 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Auth middleware - Token decoded:', decoded.userId);
+    
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {
@@ -29,6 +33,17 @@ const auth = async (req, res, next) => {
       });
     }
 
+    // Check if user is verified
+    if (!user.verified) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please verify your email before accessing this resource.',
+        requiresEmailVerification: true,
+        email: user.email
+      });
+    }
+
+    console.log('Auth middleware - User authenticated:', user.email);
     req.user = user;
     next();
   } catch (error) {

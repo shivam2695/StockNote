@@ -41,6 +41,7 @@ class ApiService {
       const error = new Error(data.message || `HTTP ${response.status}: ${response.statusText}`) as any;
       error.requiresEmailVerification = data.requiresEmailVerification;
       error.email = data.email;
+      error.errors = data.errors; // Include validation errors
       throw error;
     }
     

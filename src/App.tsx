@@ -68,13 +68,20 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleSaveTrade = (tradeData: Omit<Trade, 'id'>) => {
-    if (editingTrade) {
-      updateTrade(editingTrade.id, tradeData);
-    } else {
-      addTrade(tradeData);
+  const handleSaveTrade = async (tradeData: Omit<Trade, 'id'>) => {
+    try {
+      if (editingTrade) {
+        await updateTrade(editingTrade.id, tradeData);
+      } else {
+        await addTrade(tradeData);
+      }
+      setEditingTrade(undefined);
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error('Save trade error:', error);
+      // Show error to user
+      alert(error.message || 'Failed to save trade');
     }
-    setEditingTrade(undefined);
   };
 
   const handleCloseModal = () => {

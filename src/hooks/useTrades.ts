@@ -22,13 +22,13 @@ export function useTrades(userEmail?: string) {
         const transformedTrades = response.data.entries.map((entry: any) => ({
           id: entry._id,
           symbol: entry.stockName,
-          type: entry.status === 'open' ? 'BUY' : (entry.exitPrice && entry.exitPrice < entry.entryPrice ? 'SELL' : 'BUY'),
+          type: 'BUY' as const, // Default to BUY, can be enhanced later
           entryPrice: entry.entryPrice,
           exitPrice: entry.exitPrice,
           quantity: entry.quantity || 1,
           entryDate: entry.entryDate.split('T')[0], // Convert to YYYY-MM-DD format
           exitDate: entry.exitDate ? entry.exitDate.split('T')[0] : undefined,
-          status: entry.status.toUpperCase() as 'ACTIVE' | 'CLOSED',
+          status: entry.status === 'open' ? 'ACTIVE' : 'CLOSED' as 'ACTIVE' | 'CLOSED',
           notes: entry.remarks
         }));
         
@@ -50,11 +50,11 @@ export function useTrades(userEmail?: string) {
     try {
       // Transform frontend Trade to API JournalEntry format
       const entryData = {
-        stockName: tradeData.symbol,
+        stockName: tradeData.symbol.toUpperCase().trim(),
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
         currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
-        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed', // Convert ACTIVE/CLOSED to open/closed
+        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
@@ -79,11 +79,11 @@ export function useTrades(userEmail?: string) {
     try {
       // Transform frontend Trade to API JournalEntry format
       const entryData = {
-        stockName: tradeData.symbol,
+        stockName: tradeData.symbol.toUpperCase().trim(),
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
         currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
-        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed', // Convert ACTIVE/CLOSED to open/closed
+        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed',
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,

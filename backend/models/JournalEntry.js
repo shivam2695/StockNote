@@ -107,18 +107,24 @@ journalEntrySchema.index({ user: 1, status: 1 });
 journalEntrySchema.index({ user: 1, month: 1, year: 1 });
 journalEntrySchema.index({ user: 1, isTeamTrade: 1 });
 
-// Calculate P&L before saving
+// Calculate P&L and auto-generate fields before saving
 journalEntrySchema.pre('save', function(next) {
-  // Calculate P&L percentage: (currentPrice - entryPrice) * 100 / entryPrice
-  this.pnlPercentage = ((this.currentPrice - this.entryPrice) * 100) / this.entryPrice;
-  
-  // Calculate absolute P&L
-  this.pnl = (this.currentPrice - this.entryPrice) * (this.quantity || 1);
-  
   // Auto-generate month and year from entryDate
   const entryDate = new Date(this.entryDate);
   this.month = entryDate.toLocaleDateString('en-US', { month: 'long' });
   this.year = entryDate.getFullYear();
+  
+  // Calculate P&L based on status
+  if (this.status === 'closed' && this.exitPrice) {
+    // For closed trades, use exit price
+    this.pnlPercentage = ((this.exitPrice - this.entryPrice) * 100) / this.entryPrice;
+    this.pnl = (this.exitPrice - this.entryPrice) * (this.quantity || 1);
+    this.currentPrice = this.exitPrice; // Set current price to exit price for closed trades
+  } else {
+    // For open trades, use current price
+    this.pnlPercentage = ((this.currentPrice - this.entryPrice) * 100) / this.entryPrice;
+    this.pnl = (this.currentPrice - this.entryPrice) * (this.quantity || 1);
+  }
   
   next();
 });
