@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Team, TeamMember } from '../types/Team';
 import { useTeams } from '../hooks/useTeams';
+import { useEmailValidation } from '../hooks/useEmailValidation';
 import { 
   Users, 
   PlusCircle, 
@@ -13,7 +14,8 @@ import {
   Target,
   AlertCircle,
   CheckCircle,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 
 interface TeamsProps {
@@ -37,6 +39,8 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
     loadTeamTrades
   } = useTeams(userEmail);
 
+  const { validateEmail, isValidating } = useEmailValidation();
+
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -44,6 +48,8 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState('member');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState<'journal' | 'focus'>('journal');
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +84,14 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
     
     if (!memberEmail.trim() || !currentTeam) return;
     
+    // Validate email first
+    const validation = await validateEmail(memberEmail.trim());
+    if (!validation.isValid) {
+      setEmailError(validation.message || 'Invalid email');
+      return;
+    }
+    
+    setEmailError('');
     setIsSubmitting(true);
     try {
       await addTeamMember(currentTeam.id, memberEmail.trim(), memberRole);
@@ -93,6 +107,7 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
       });
     } catch (error: any) {
       console.error('Add member error:', error);
+      setEmailError(error.message || 'Failed to add member');
     } finally {
       setIsSubmitting(false);
     }
@@ -349,7 +364,7 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
     );
   }
 
-  // Team detail view
+  // Team detail view with dual sub-tabs
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -449,76 +464,128 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
         </div>
       </div>
 
-      {/* Team Trades */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Team Trades</h2>
-        {teamTrades.length > 0 ? (
-          <div className="space-y-4">
-            {teamTrades.map((trade) => (
-              <div key={trade.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <span className="font-bold text-lg text-gray-900">{trade.stockName}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      trade.status === 'open' 
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {trade.status}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className={`font-semibold ${
-                      trade.pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {formatCurrency(trade.pnl)} ({trade.pnlPercentage.toFixed(2)}%)
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      by {trade.createdBy.name}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-500">Entry Price</div>
-                    <div className="font-semibold">{formatCurrency(trade.entryPrice)}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Quantity</div>
-                    <div className="font-semibold">{trade.quantity}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Entry Date</div>
-                    <div className="font-semibold">
-                      {new Date(trade.entryDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-gray-500">Risk Level</div>
-                    <div className={`font-semibold ${
-                      trade.riskLevel === 'high' ? 'text-red-600' :
-                      trade.riskLevel === 'medium' ? 'text-yellow-600' : 'text-green-600'
-                    }`}>
-                      {trade.riskLevel}
-                    </div>
-                  </div>
-                </div>
-
-                {trade.remarks && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-700">{trade.remarks}</div>
-                  </div>
-                )}
+      {/* Team Dual View Tabs */}
+      <div className="bg-white rounded-xl shadow-lg">
+        {/* Tab Headers */}
+        <div className="border-b border-gray-200">
+          <div className="flex space-x-8 px-6">
+            <button
+              onClick={() => setActiveSubTab('journal')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeSubTab === 'journal'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <FileText className="w-4 h-4" />
+                <span>📓 Journal</span>
               </div>
-            ))}
+            </button>
+            <button
+              onClick={() => setActiveSubTab('focus')}
+              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                activeSubTab === 'focus'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Target className="w-4 h-4" />
+                <span>⭐ Focus Stocks</span>
+              </div>
+            </button>
           </div>
-        ) : (
-          <div className="text-center py-8">
-            <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500">No team trades yet</p>
-          </div>
-        )}
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeSubTab === 'journal' ? (
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Team Trading Journal</h3>
+              {teamTrades.length > 0 ? (
+                <div className="space-y-4">
+                  {teamTrades.map((trade) => (
+                    <div key={trade.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="font-bold text-lg text-gray-900">{trade.stockName}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            trade.status === 'open' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {trade.status === 'open' ? '🔄 Active' : '✅ Closed'}
+                          </span>
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Team Trade
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <div className={`font-semibold ${
+                            trade.pnl >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {formatCurrency(trade.pnl)} ({trade.pnlPercentage.toFixed(2)}%)
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            by {trade.createdBy.name}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <div className="text-gray-500">Entry Price</div>
+                          <div className="font-semibold">{formatCurrency(trade.entryPrice)}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">Quantity</div>
+                          <div className="font-semibold">{trade.quantity}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">Entry Date</div>
+                          <div className="font-semibold">
+                            {new Date(trade.entryDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500">Risk Level</div>
+                          <div className={`font-semibold ${
+                            trade.riskLevel === 'high' ? 'text-red-600' :
+                            trade.riskLevel === 'medium' ? 'text-yellow-600' : 'text-green-600'
+                          }`}>
+                            {trade.riskLevel}
+                          </div>
+                        </div>
+                      </div>
+
+                      {trade.remarks && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="text-sm text-gray-700">{trade.remarks}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500">No team trades yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Trades taken by team members will appear here</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Team Focus Stocks</h3>
+              <div className="text-center py-8">
+                <Target className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500">Team focus stocks coming soon</p>
+                <p className="text-sm text-gray-400 mt-1">Shared watchlist for team collaboration</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Member Modal */}
@@ -528,7 +595,10 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-xl font-bold text-gray-900">Add Team Member</h2>
               <button
-                onClick={() => setShowAddMember(false)}
+                onClick={() => {
+                  setShowAddMember(false);
+                  setEmailError('');
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
@@ -543,12 +613,23 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
                 <input
                   type="email"
                   value={memberEmail}
-                  onChange={(e) => setMemberEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => {
+                    setMemberEmail(e.target.value);
+                    setEmailError('');
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    emailError ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="member@example.com"
                   required
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isValidating}
                 />
+                {emailError && (
+                  <div className="mt-1 flex items-center space-x-1">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <p className="text-sm text-red-600">{emailError}</p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -570,18 +651,21 @@ export default function Teams({ userEmail, onAddNotification }: TeamsProps) {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowAddMember(false)}
+                  onClick={() => {
+                    setShowAddMember(false);
+                    setEmailError('');
+                  }}
                   className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isValidating}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  disabled={isSubmitting || !memberEmail.trim()}
+                  disabled={isSubmitting || isValidating || !memberEmail.trim()}
                 >
-                  {isSubmitting ? 'Adding...' : 'Add Member'}
+                  {isSubmitting ? 'Adding...' : isValidating ? 'Validating...' : 'Add Member'}
                 </button>
               </div>
             </form>

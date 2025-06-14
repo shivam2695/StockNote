@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TradeTable from './components/TradeTable';
@@ -8,12 +8,15 @@ import Teams from './components/Teams';
 import AuthContainer from './components/AuthContainer';
 import Header from './components/Header';
 import WelcomeModal from './components/WelcomeModal';
+import WelcomeNotification from './components/WelcomeNotification';
 import HealthCheck from './components/HealthCheck';
+import MonthFilter from './components/MonthFilter';
 import { useTrades } from './hooks/useTrades';
 import { useFocusStocks } from './hooks/useFocusStocks';
 import { useNotifications } from './hooks/useNotifications';
 import { useAuth } from './hooks/useAuth';
 import { Trade } from './types/Trade';
+import { FocusStockTag } from './components/FocusStockTags';
 import { PlusCircle, Menu, X } from 'lucide-react';
 
 function App() {
@@ -21,7 +24,10 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   const { isAuthenticated, user, login, logout, signUp } = useAuth();
   
@@ -54,6 +60,17 @@ function App() {
   } = useNotifications(user?.email);
 
   const stats = calculateStats();
+
+  // Check for auto-login on mount
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const currentUser = localStorage.getItem('currentUser');
+    
+    if (token && currentUser && isAuthenticated && user) {
+      // User was automatically logged in
+      setShowWelcomeNotification(true);
+    }
+  }, [isAuthenticated, user]);
 
   // Show auth container if not authenticated
   if (!isAuthenticated) {
@@ -163,6 +180,38 @@ function App() {
     }
   };
 
+  const handleUpdateFocusStockTag = async (stockId: string, tag: FocusStockTag) => {
+    try {
+      const stock = focusStocks.find(s => s.id === stockId);
+      if (stock) {
+        const updatedStock = { ...stock, tag };
+        await updateFocusStock(stockId, updatedStock);
+      }
+    } catch (error: any) {
+      console.error('Update focus stock tag error:', error);
+    }
+  };
+
+  // Filter trades by month and year
+  const getFilteredTrades = () => {
+    let filtered = trades;
+    
+    if (selectedMonth) {
+      filtered = filtered.filter(trade => {
+        const tradeDate = new Date(trade.entryDate);
+        const tradeMonth = tradeDate.toLocaleDateString('en-US', { month: 'long' });
+        return tradeMonth === selectedMonth && tradeDate.getFullYear() === selectedYear;
+      });
+    } else if (selectedYear !== new Date().getFullYear()) {
+      filtered = filtered.filter(trade => {
+        const tradeDate = new Date(trade.entryDate);
+        return tradeDate.getFullYear() === selectedYear;
+      });
+    }
+    
+    return filtered;
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -178,6 +227,7 @@ function App() {
           />
         );
       case 'trades':
+        const filteredTrades = getFilteredTrades();
         return (
           <div className="min-h-screen bg-gray-50">
             <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-6">
@@ -186,21 +236,30 @@ function App() {
                   <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Trading Journal</h1>
                   <p className="text-gray-600 mt-1">Complete history of your trading activity</p>
                 </div>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 whitespace-nowrap"
-                >
-                  <PlusCircle className="w-5 h-5" />
-                  <span>Add Trade</span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <MonthFilter
+                    selectedMonth={selectedMonth}
+                    selectedYear={selectedYear}
+                    onMonthChange={setSelectedMonth}
+                    onYearChange={setSelectedYear}
+                  />
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 whitespace-nowrap"
+                  >
+                    <PlusCircle className="w-5 h-5" />
+                    <span>Add Trade</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="px-4 sm:px-6 lg:px-8 py-6">
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <TradeTable
-                  trades={trades}
+                  trades={filteredTrades}
                   onEditTrade={handleEditTrade}
                   onDeleteTrade={deleteTrade}
+                  onUpdateTrade={updateTrade}
                 />
               </div>
             </div>
@@ -216,6 +275,7 @@ function App() {
                 onEditStock={updateFocusStock}
                 onDeleteStock={deleteFocusStock}
                 onMarkTradeTaken={handleMarkFocusStockTaken}
+                onUpdateStockTag={handleUpdateFocusStockTag}
               />
             </div>
           </div>
@@ -339,6 +399,13 @@ function App() {
     <div className="bg-gray-50 min-h-screen">
       {/* Health Check Component */}
       <HealthCheck />
+
+      {/* Welcome Notification */}
+      <WelcomeNotification
+        userName={user?.name || ''}
+        show={showWelcomeNotification}
+        onClose={() => setShowWelcomeNotification(false)}
+      />
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">

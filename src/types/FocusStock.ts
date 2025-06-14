@@ -8,4 +8,5 @@ export interface FocusStock {
   tradeTaken: boolean;
   tradeDate?: string;
   notes?: string;
+  tag?: 'worked' | 'missed' | 'failed' | 'watch';
 }

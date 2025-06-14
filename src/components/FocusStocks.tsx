@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FocusStock } from '../types/FocusStock';
 import FocusStocksTable from './FocusStocksTable';
 import FocusStockModal from './FocusStockModal';
+import { FocusStockTag } from './FocusStockTags';
 import { Target, PlusCircle, TrendingUp, Eye, AlertCircle } from 'lucide-react';
 
 interface FocusStocksProps {
@@ -10,6 +11,7 @@ interface FocusStocksProps {
   onEditStock: (stockId: string, stock: Omit<FocusStock, 'id'>) => void;
   onDeleteStock: (stockId: string) => void;
   onMarkTradeTaken: (stockId: string, tradeTaken: boolean, tradeDate?: string) => void;
+  onUpdateStockTag?: (stockId: string, tag: FocusStockTag) => void;
 }
 
 export default function FocusStocks({ 
@@ -17,7 +19,8 @@ export default function FocusStocks({
   onAddStock, 
   onEditStock, 
   onDeleteStock, 
-  onMarkTradeTaken 
+  onMarkTradeTaken,
+  onUpdateStockTag
 }: FocusStocksProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<FocusStock | undefined>();
@@ -70,6 +73,19 @@ export default function FocusStocks({
     return totalReturn / stockList.length;
   };
 
+  // Calculate tag statistics
+  const getTagStats = () => {
+    const tagCounts = {
+      worked: stocks.filter(s => s.tag === 'worked').length,
+      missed: stocks.filter(s => s.tag === 'missed').length,
+      failed: stocks.filter(s => s.tag === 'failed').length,
+      watch: stocks.filter(s => s.tag === 'watch').length
+    };
+    return tagCounts;
+  };
+
+  const tagStats = getTagStats();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -107,7 +123,7 @@ export default function FocusStocks({
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium opacity-90">Total Focus Stocks</h3>
@@ -138,6 +154,31 @@ export default function FocusStocks({
             {stocks.length > 0 ? ((takenStocks.length / stocks.length) * 100).toFixed(0) : 0}% conversion rate
           </p>
         </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 shadow-lg text-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium opacity-90">Performance Tags</h3>
+            <Target className="w-6 h-6" />
+          </div>
+          <div className="text-sm space-y-1">
+            <div className="flex justify-between">
+              <span>✅ Worked:</span>
+              <span className="font-semibold">{tagStats.worked}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>🟡 Missed:</span>
+              <span className="font-semibold">{tagStats.missed}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>🔴 Failed:</span>
+              <span className="font-semibold">{tagStats.failed}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>🔵 Watch:</span>
+              <span className="font-semibold">{tagStats.watch}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Pending Stocks */}
@@ -152,6 +193,7 @@ export default function FocusStocks({
             onEditStock={handleEditStock}
             onDeleteStock={onDeleteStock}
             onMarkTradeTaken={onMarkTradeTaken}
+            onUpdateStockTag={onUpdateStockTag}
           />
         </div>
       )}
@@ -168,6 +210,7 @@ export default function FocusStocks({
             onEditStock={handleEditStock}
             onDeleteStock={onDeleteStock}
             onMarkTradeTaken={onMarkTradeTaken}
+            onUpdateStockTag={onUpdateStockTag}
           />
         </div>
       )}
@@ -181,6 +224,7 @@ export default function FocusStocks({
             onEditStock={handleEditStock}
             onDeleteStock={onDeleteStock}
             onMarkTradeTaken={onMarkTradeTaken}
+            onUpdateStockTag={onUpdateStockTag}
           />
         ) : (
           <div className="text-center py-12">
