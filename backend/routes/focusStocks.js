@@ -12,25 +12,47 @@ const validateFocusStock = [
     .isLength({ min: 1, max: 20 })
     .withMessage('Stock name must be between 1 and 20 characters'),
   body('entryPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Entry price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Entry price must be greater than 0'),
   body('targetPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Target price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Target price must be greater than 0'),
   body('stopLossPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Stop loss price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Stop loss price must be greater than 0'),
   body('currentPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Current price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Current price must be greater than 0'),
   body('reason')
-    .optional()
-    .isLength({ max: 200 })
-    .withMessage('Reason cannot exceed 200 characters'),
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Reason must be between 1 and 200 characters'),
   body('notes')
     .optional()
     .isLength({ max: 500 })
-    .withMessage('Notes cannot exceed 500 characters')
+    .withMessage('Notes cannot exceed 500 characters'),
+  body('tradeTaken')
+    .optional()
+    .isBoolean()
+    .withMessage('Trade taken must be a boolean'),
+  body('tradeDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Trade date must be a valid date')
+    .custom((value, { req }) => {
+      if (req.body.tradeTaken && !value) {
+        throw new Error('Trade date is required when trade is taken');
+      }
+      if (value) {
+        const tradeDate = new Date(value);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (tradeDate > today) {
+          throw new Error('Trade date cannot be in the future');
+        }
+      }
+      return true;
+    })
 ];
 
 // @route   GET /api/focus-stocks
@@ -160,16 +182,16 @@ router.post('/', auth, validateFocusStock, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array().map(err => err.msg)
       });
     }
 
     const stockData = {
       ...req.body,
       user: req.user._id,
-      stockName: req.body.stockName.toUpperCase(),
-      reason: req.body.reason || '',
-      notes: req.body.notes || ''
+      stockName: req.body.stockName.toUpperCase().trim(),
+      reason: req.body.reason.trim(),
+      notes: req.body.notes ? req.body.notes.trim() : ''
     };
     
     const stock = new FocusStock(stockData);
@@ -210,15 +232,15 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array().map(err => err.msg)
       });
     }
 
     const updateData = {
       ...req.body,
-      stockName: req.body.stockName.toUpperCase(),
-      reason: req.body.reason || '',
-      notes: req.body.notes || ''
+      stockName: req.body.stockName.toUpperCase().trim(),
+      reason: req.body.reason.trim(),
+      notes: req.body.notes ? req.body.notes.trim() : ''
     };
     
     const stock = await FocusStock.findOneAndUpdate(
@@ -265,6 +287,14 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
 router.patch('/:id/mark-taken', auth, async (req, res) => {
   try {
     const { tradeTaken, tradeDate } = req.body;
+    
+    // Validate trade date if trade is taken
+    if (tradeTaken && !tradeDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trade date is required when marking trade as taken'
+      });
+    }
     
     const stock = await FocusStock.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },

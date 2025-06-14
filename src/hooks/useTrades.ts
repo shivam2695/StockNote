@@ -53,6 +53,20 @@ export function useTrades(userEmail?: string) {
       const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
       const year = entryDate.getFullYear();
 
+      // Validate required fields for closed trades
+      if (tradeData.status === 'CLOSED') {
+        if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
+          throw new Error('Exit price is required for closed trades');
+        }
+        if (!tradeData.exitDate) {
+          throw new Error('Exit date is required for closed trades');
+        }
+        // Validate exit date is after entry date
+        if (new Date(tradeData.exitDate) < new Date(tradeData.entryDate)) {
+          throw new Error('Exit date must be after entry date');
+        }
+      }
+
       // Transform frontend Trade to API JournalEntry format
       const entryData = {
         stockName: tradeData.symbol.toUpperCase().trim(),
@@ -89,6 +103,20 @@ export function useTrades(userEmail?: string) {
       const entryDate = new Date(tradeData.entryDate);
       const month = entryDate.toLocaleDateString('en-US', { month: 'long' });
       const year = entryDate.getFullYear();
+
+      // Validate required fields for closed trades
+      if (tradeData.status === 'CLOSED') {
+        if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
+          throw new Error('Exit price is required for closed trades');
+        }
+        if (!tradeData.exitDate) {
+          throw new Error('Exit date is required for closed trades');
+        }
+        // Validate exit date is after entry date
+        if (new Date(tradeData.exitDate) < new Date(tradeData.entryDate)) {
+          throw new Error('Exit date must be after entry date');
+        }
+      }
 
       // Transform frontend Trade to API JournalEntry format
       const entryData = {

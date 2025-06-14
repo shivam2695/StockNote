@@ -47,6 +47,23 @@ export function useFocusStocks(userEmail?: string) {
 
   const addFocusStock = async (stockData: Omit<FocusStock, 'id'>) => {
     try {
+      // Validate required fields
+      if (!stockData.symbol || !stockData.symbol.trim()) {
+        throw new Error('Stock symbol is required');
+      }
+      if (!stockData.currentPrice || stockData.currentPrice <= 0) {
+        throw new Error('Current price must be greater than 0');
+      }
+      if (!stockData.targetPrice || stockData.targetPrice <= 0) {
+        throw new Error('Target price must be greater than 0');
+      }
+      if (!stockData.reason || !stockData.reason.trim()) {
+        throw new Error('Reason is required');
+      }
+      if (!stockData.dateAdded) {
+        throw new Error('Date added is required');
+      }
+
       // Transform frontend FocusStock to API format
       const apiData = {
         stockName: stockData.symbol.toUpperCase().trim(),
@@ -54,8 +71,8 @@ export function useFocusStocks(userEmail?: string) {
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95, // Default 5% stop loss
         currentPrice: stockData.currentPrice,
-        reason: stockData.reason || '',
-        notes: stockData.notes || '',
+        reason: stockData.reason.trim(),
+        notes: stockData.notes?.trim() || '',
         tradeTaken: stockData.tradeTaken || false,
         tradeDate: stockData.tradeDate || undefined
       };
@@ -75,6 +92,23 @@ export function useFocusStocks(userEmail?: string) {
 
   const updateFocusStock = async (stockId: string, stockData: Omit<FocusStock, 'id'>) => {
     try {
+      // Validate required fields
+      if (!stockData.symbol || !stockData.symbol.trim()) {
+        throw new Error('Stock symbol is required');
+      }
+      if (!stockData.currentPrice || stockData.currentPrice <= 0) {
+        throw new Error('Current price must be greater than 0');
+      }
+      if (!stockData.targetPrice || stockData.targetPrice <= 0) {
+        throw new Error('Target price must be greater than 0');
+      }
+      if (!stockData.reason || !stockData.reason.trim()) {
+        throw new Error('Reason is required');
+      }
+      if (!stockData.dateAdded) {
+        throw new Error('Date added is required');
+      }
+
       // Transform frontend FocusStock to API format
       const apiData = {
         stockName: stockData.symbol.toUpperCase().trim(),
@@ -82,8 +116,8 @@ export function useFocusStocks(userEmail?: string) {
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95,
         currentPrice: stockData.currentPrice,
-        reason: stockData.reason || '',
-        notes: stockData.notes || '',
+        reason: stockData.reason.trim(),
+        notes: stockData.notes?.trim() || '',
         tradeTaken: stockData.tradeTaken || false,
         tradeDate: stockData.tradeDate || undefined
       };

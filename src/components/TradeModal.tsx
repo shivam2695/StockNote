@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Trade } from '../types/Trade';
-import { X, TrendingUp, TrendingDown } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 
 interface TradeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (trade: Omit<Trade, 'id'>) => void;
+  onSave: (trade: Omit<Trade, 'id'>) => Promise<void>;
   trade?: Trade;
 }
 
@@ -23,6 +23,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (trade) {
@@ -56,59 +57,111 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Symbol validation
     if (!formData.symbol.trim()) {
       newErrors.symbol = 'Symbol is required';
+    } else if (formData.symbol.trim().length > 10) {
+      newErrors.symbol = 'Symbol cannot exceed 10 characters';
     }
 
-    if (!formData.entryPrice || parseFloat(formData.entryPrice) <= 0) {
-      newErrors.entryPrice = 'Entry price must be greater than 0';
+    // Entry price validation
+    if (!formData.entryPrice) {
+      newErrors.entryPrice = 'Entry price is required';
+    } else {
+      const price = parseFloat(formData.entryPrice);
+      if (isNaN(price) || price <= 0) {
+        newErrors.entryPrice = 'Entry price must be greater than 0';
+      }
     }
 
-    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
-      newErrors.quantity = 'Quantity must be greater than 0';
+    // Quantity validation
+    if (!formData.quantity) {
+      newErrors.quantity = 'Quantity is required';
+    } else {
+      const qty = parseInt(formData.quantity);
+      if (isNaN(qty) || qty <= 0) {
+        newErrors.quantity = 'Quantity must be greater than 0';
+      }
     }
 
+    // Entry date validation
     if (!formData.entryDate) {
       newErrors.entryDate = 'Entry date is required';
+    } else {
+      const entryDate = new Date(formData.entryDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
+      if (entryDate > today) {
+        newErrors.entryDate = 'Entry date cannot be in the future';
+      }
     }
 
+    // Closed trade validations
     if (formData.status === 'CLOSED') {
-      if (!formData.exitPrice || parseFloat(formData.exitPrice) <= 0) {
+      if (!formData.exitPrice) {
         newErrors.exitPrice = 'Exit price is required for closed trades';
+      } else {
+        const exitPrice = parseFloat(formData.exitPrice);
+        if (isNaN(exitPrice) || exitPrice <= 0) {
+          newErrors.exitPrice = 'Exit price must be greater than 0';
+        }
       }
+
       if (!formData.exitDate) {
         newErrors.exitDate = 'Exit date is required for closed trades';
+      } else if (formData.entryDate) {
+        const entryDate = new Date(formData.entryDate);
+        const exitDate = new Date(formData.exitDate);
+        if (exitDate < entryDate) {
+          newErrors.exitDate = 'Exit date must be after entry date';
+        }
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (exitDate > today) {
+          newErrors.exitDate = 'Exit date cannot be in the future';
+        }
       }
-      if (formData.exitDate && formData.entryDate && formData.exitDate < formData.entryDate) {
-        newErrors.exitDate = 'Exit date must be after entry date';
-      }
+    }
+
+    // Notes validation
+    if (formData.notes && formData.notes.length > 500) {
+      newErrors.notes = 'Notes cannot exceed 500 characters';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
       return;
     }
     
-    const tradeData: Omit<Trade, 'id'> = {
-      symbol: formData.symbol.toUpperCase().trim(),
-      type: formData.type,
-      entryPrice: parseFloat(formData.entryPrice),
-      exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
-      quantity: parseInt(formData.quantity),
-      entryDate: formData.entryDate,
-      exitDate: formData.exitDate || undefined,
-      status: formData.status,
-      notes: formData.notes.trim() || undefined
-    };
+    setIsSubmitting(true);
+    
+    try {
+      const tradeData: Omit<Trade, 'id'> = {
+        symbol: formData.symbol.toUpperCase().trim(),
+        type: formData.type,
+        entryPrice: parseFloat(formData.entryPrice),
+        exitPrice: formData.exitPrice ? parseFloat(formData.exitPrice) : undefined,
+        quantity: parseInt(formData.quantity),
+        entryDate: formData.entryDate,
+        exitDate: formData.exitDate || undefined,
+        status: formData.status,
+        notes: formData.notes.trim() || undefined
+      };
 
-    onSave(tradeData);
-    onClose();
+      await onSave(tradeData);
+      onClose();
+    } catch (error: any) {
+      // Error is handled by parent component
+      console.error('Trade save error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -130,6 +183,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={isSubmitting}
           >
             <X className="w-6 h-6" />
           </button>
@@ -148,9 +202,16 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                 errors.symbol ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="AAPL"
+              maxLength={10}
               required
+              disabled={isSubmitting}
             />
-            {errors.symbol && <p className="mt-1 text-sm text-red-600">{errors.symbol}</p>}
+            {errors.symbol && (
+              <div className="mt-1 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-600">{errors.symbol}</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -161,11 +222,12 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               <button
                 type="button"
                 onClick={() => handleInputChange('type', 'BUY')}
+                disabled={isSubmitting}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg border transition-colors ${
                   formData.type === 'BUY'
                     ? 'bg-green-50 border-green-500 text-green-700'
                     : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <TrendingUp className="w-4 h-4" />
                 <span>BUY</span>
@@ -173,11 +235,12 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               <button
                 type="button"
                 onClick={() => handleInputChange('type', 'SELL')}
+                disabled={isSubmitting}
                 className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-lg border transition-colors ${
                   formData.type === 'SELL'
                     ? 'bg-red-50 border-red-500 text-red-700'
                     : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <TrendingDown className="w-4 h-4" />
                 <span>SELL</span>
@@ -199,8 +262,14 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                 }`}
                 min="1"
                 required
+                disabled={isSubmitting}
               />
-              {errors.quantity && <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>}
+              {errors.quantity && (
+                <div className="mt-1 flex items-center space-x-1">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <p className="text-sm text-red-600">{errors.quantity}</p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -216,8 +285,14 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                 }`}
                 min="0"
                 required
+                disabled={isSubmitting}
               />
-              {errors.entryPrice && <p className="mt-1 text-sm text-red-600">{errors.entryPrice}</p>}
+              {errors.entryPrice && (
+                <div className="mt-1 flex items-center space-x-1">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <p className="text-sm text-red-600">{errors.entryPrice}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -232,9 +307,16 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                 errors.entryDate ? 'border-red-500' : 'border-gray-300'
               }`}
+              max={new Date().toISOString().split('T')[0]}
               required
+              disabled={isSubmitting}
             />
-            {errors.entryDate && <p className="mt-1 text-sm text-red-600">{errors.entryDate}</p>}
+            {errors.entryDate && (
+              <div className="mt-1 flex items-center space-x-1">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-600">{errors.entryDate}</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -245,6 +327,7 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               value={formData.status}
               onChange={(e) => handleInputChange('status', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSubmitting}
             >
               <option value="ACTIVE">Active</option>
               <option value="CLOSED">Closed</option>
@@ -266,8 +349,14 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                     errors.exitPrice ? 'border-red-500' : 'border-gray-300'
                   }`}
                   min="0"
+                  disabled={isSubmitting}
                 />
-                {errors.exitPrice && <p className="mt-1 text-sm text-red-600">{errors.exitPrice}</p>}
+                {errors.exitPrice && (
+                  <div className="mt-1 flex items-center space-x-1">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <p className="text-sm text-red-600">{errors.exitPrice}</p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -280,8 +369,16 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.exitDate ? 'border-red-500' : 'border-gray-300'
                   }`}
+                  min={formData.entryDate}
+                  max={new Date().toISOString().split('T')[0]}
+                  disabled={isSubmitting}
                 />
-                {errors.exitDate && <p className="mt-1 text-sm text-red-600">{errors.exitDate}</p>}
+                {errors.exitDate && (
+                  <div className="mt-1 flex items-center space-x-1">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    <p className="text-sm text-red-600">{errors.exitDate}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -293,11 +390,25 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             <textarea
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.notes ? 'border-red-500' : 'border-gray-300'
+              }`}
               rows={3}
               placeholder="Add any notes about this trade..."
               maxLength={500}
+              disabled={isSubmitting}
             />
+            <div className="flex justify-between items-center mt-1">
+              {errors.notes && (
+                <div className="flex items-center space-x-1">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <p className="text-sm text-red-600">{errors.notes}</p>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 ml-auto">
+                {formData.notes.length}/500
+              </p>
+            </div>
           </div>
 
           <div className="flex space-x-3 pt-4">
@@ -305,14 +416,16 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
               type="button"
               onClick={onClose}
               className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
             >
-              {trade ? 'Update' : 'Add'} Trade
+              {isSubmitting ? 'Saving...' : trade ? 'Update' : 'Add'} Trade
             </button>
           </div>
         </form>

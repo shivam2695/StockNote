@@ -12,14 +12,23 @@ const validateJournalEntry = [
     .isLength({ min: 1, max: 20 })
     .withMessage('Stock name must be between 1 and 20 characters'),
   body('entryPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Entry price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Entry price must be greater than 0'),
   body('entryDate')
     .isISO8601()
-    .withMessage('Entry date must be a valid date'),
+    .withMessage('Entry date must be a valid date')
+    .custom((value) => {
+      const entryDate = new Date(value);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (entryDate > today) {
+        throw new Error('Entry date cannot be in the future');
+      }
+      return true;
+    }),
   body('currentPrice')
-    .isFloat({ min: 0 })
-    .withMessage('Current price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Current price must be greater than 0'),
   body('status')
     .isIn(['open', 'closed'])
     .withMessage('Status must be either open or closed'),
@@ -33,12 +42,36 @@ const validateJournalEntry = [
     .withMessage('Quantity must be at least 1'),
   body('exitPrice')
     .optional()
-    .isFloat({ min: 0 })
-    .withMessage('Exit price must be a positive number'),
+    .isFloat({ min: 0.01 })
+    .withMessage('Exit price must be greater than 0')
+    .custom((value, { req }) => {
+      if (req.body.status === 'closed' && (!value || value <= 0)) {
+        throw new Error('Exit price is required for closed trades');
+      }
+      return true;
+    }),
   body('exitDate')
     .optional()
     .isISO8601()
-    .withMessage('Exit date must be a valid date'),
+    .withMessage('Exit date must be a valid date')
+    .custom((value, { req }) => {
+      if (req.body.status === 'closed' && !value) {
+        throw new Error('Exit date is required for closed trades');
+      }
+      if (value && req.body.entryDate) {
+        const entryDate = new Date(req.body.entryDate);
+        const exitDate = new Date(value);
+        if (exitDate < entryDate) {
+          throw new Error('Exit date must be after entry date');
+        }
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (exitDate > today) {
+          throw new Error('Exit date cannot be in the future');
+        }
+      }
+      return true;
+    }),
   body('isTeamTrade')
     .optional()
     .isBoolean()
@@ -180,28 +213,12 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array().map(err => err.msg)
       });
     }
 
     console.log('Creating journal entry with body:', req.body);
     console.log('User:', req.user._id);
-
-    // Validate closed trade requirements
-    if (req.body.status === 'closed') {
-      if (!req.body.exitPrice) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exit price is required for closed trades'
-        });
-      }
-      if (!req.body.exitDate) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exit date is required for closed trades'
-        });
-      }
-    }
 
     // Auto-generate month and year from entryDate if not provided
     let month = req.body.month;
@@ -216,7 +233,7 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
     const entryData = {
       ...req.body,
       user: req.user._id,
-      stockName: req.body.stockName.toUpperCase(),
+      stockName: req.body.stockName.toUpperCase().trim(),
       quantity: req.body.quantity || 1,
       isTeamTrade: req.body.isTeamTrade || false,
       remarks: req.body.remarks || '',
@@ -266,24 +283,8 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array()
+        errors: errors.array().map(err => err.msg)
       });
-    }
-
-    // Validate closed trade requirements
-    if (req.body.status === 'closed') {
-      if (!req.body.exitPrice) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exit price is required for closed trades'
-        });
-      }
-      if (!req.body.exitDate) {
-        return res.status(400).json({
-          success: false,
-          message: 'Exit date is required for closed trades'
-        });
-      }
     }
 
     // Auto-generate month and year from entryDate if not provided
@@ -298,7 +299,7 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
 
     const updateData = {
       ...req.body,
-      stockName: req.body.stockName.toUpperCase(),
+      stockName: req.body.stockName.toUpperCase().trim(),
       quantity: req.body.quantity || 1,
       isTeamTrade: req.body.isTeamTrade || false,
       remarks: req.body.remarks || '',

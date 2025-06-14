@@ -42,6 +42,7 @@ class ApiService {
       error.requiresEmailVerification = data.requiresEmailVerification;
       error.email = data.email;
       error.errors = data.errors; // Include validation errors
+      error.statusCode = response.status;
       throw error;
     }
     
@@ -52,13 +53,15 @@ class ApiService {
     try {
       const headers = this.getAuthHeaders();
       
-      // Debug: Log the request details
-      console.log('Making API request:', {
-        url: `${API_BASE_URL}${url}`,
-        method: options.method || 'GET',
-        hasToken: !!localStorage.getItem('authToken'),
-        headers: headers
-      });
+      // Debug: Log the request details in development
+      if (import.meta.env.DEV) {
+        console.log('Making API request:', {
+          url: `${API_BASE_URL}${url}`,
+          method: options.method || 'GET',
+          hasToken: !!localStorage.getItem('authToken'),
+          headers: headers
+        });
+      }
       
       const response = await fetch(`${API_BASE_URL}${url}`, {
         ...options,
@@ -84,7 +87,9 @@ class ApiService {
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
-      console.log('Token stored:', data.data.token.substring(0, 20) + '...');
+      if (import.meta.env.DEV) {
+        console.log('Token stored:', data.data.token.substring(0, 20) + '...');
+      }
     }
     
     return data;
@@ -105,7 +110,9 @@ class ApiService {
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
-      console.log('Token stored after verification:', data.data.token.substring(0, 20) + '...');
+      if (import.meta.env.DEV) {
+        console.log('Token stored after verification:', data.data.token.substring(0, 20) + '...');
+      }
     }
     
     return data;
@@ -154,9 +161,33 @@ class ApiService {
   }
 
   async createJournalEntry(entryData: any) {
-    // Debug: Log the data being sent
-    console.log('Creating journal entry with data:', entryData);
-    console.log('Current auth token exists:', !!localStorage.getItem('authToken'));
+    // Validate required fields before sending
+    if (!entryData.stockName || !entryData.stockName.trim()) {
+      throw new Error('Stock name is required');
+    }
+    if (!entryData.entryPrice || entryData.entryPrice <= 0) {
+      throw new Error('Entry price must be greater than 0');
+    }
+    if (!entryData.entryDate) {
+      throw new Error('Entry date is required');
+    }
+    if (!entryData.currentPrice || entryData.currentPrice <= 0) {
+      throw new Error('Current price must be greater than 0');
+    }
+    if (entryData.status === 'closed') {
+      if (!entryData.exitPrice || entryData.exitPrice <= 0) {
+        throw new Error('Exit price is required for closed trades');
+      }
+      if (!entryData.exitDate) {
+        throw new Error('Exit date is required for closed trades');
+      }
+    }
+
+    // Debug: Log the data being sent in development
+    if (import.meta.env.DEV) {
+      console.log('Creating journal entry with data:', entryData);
+      console.log('Current auth token exists:', !!localStorage.getItem('authToken'));
+    }
     
     return this.makeRequest('/journal-entries', {
       method: 'POST',
@@ -165,6 +196,28 @@ class ApiService {
   }
 
   async updateJournalEntry(id: string, entryData: any) {
+    // Validate required fields before sending
+    if (!entryData.stockName || !entryData.stockName.trim()) {
+      throw new Error('Stock name is required');
+    }
+    if (!entryData.entryPrice || entryData.entryPrice <= 0) {
+      throw new Error('Entry price must be greater than 0');
+    }
+    if (!entryData.entryDate) {
+      throw new Error('Entry date is required');
+    }
+    if (!entryData.currentPrice || entryData.currentPrice <= 0) {
+      throw new Error('Current price must be greater than 0');
+    }
+    if (entryData.status === 'closed') {
+      if (!entryData.exitPrice || entryData.exitPrice <= 0) {
+        throw new Error('Exit price is required for closed trades');
+      }
+      if (!entryData.exitDate) {
+        throw new Error('Exit date is required for closed trades');
+      }
+    }
+
     return this.makeRequest(`/journal-entries/${id}`, {
       method: 'PUT',
       body: JSON.stringify(entryData)
@@ -192,6 +245,24 @@ class ApiService {
   }
 
   async createFocusStock(stockData: any) {
+    // Validate required fields before sending
+    if (!stockData.stockName || !stockData.stockName.trim()) {
+      throw new Error('Stock name is required');
+    }
+    if (!stockData.currentPrice || stockData.currentPrice <= 0) {
+      throw new Error('Current price must be greater than 0');
+    }
+    if (!stockData.targetPrice || stockData.targetPrice <= 0) {
+      throw new Error('Target price must be greater than 0');
+    }
+    if (!stockData.reason || !stockData.reason.trim()) {
+      throw new Error('Reason is required');
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('Creating focus stock with data:', stockData);
+    }
+
     return this.makeRequest('/focus-stocks', {
       method: 'POST',
       body: JSON.stringify(stockData)
@@ -199,6 +270,20 @@ class ApiService {
   }
 
   async updateFocusStock(id: string, stockData: any) {
+    // Validate required fields before sending
+    if (!stockData.stockName || !stockData.stockName.trim()) {
+      throw new Error('Stock name is required');
+    }
+    if (!stockData.currentPrice || stockData.currentPrice <= 0) {
+      throw new Error('Current price must be greater than 0');
+    }
+    if (!stockData.targetPrice || stockData.targetPrice <= 0) {
+      throw new Error('Target price must be greater than 0');
+    }
+    if (!stockData.reason || !stockData.reason.trim()) {
+      throw new Error('Reason is required');
+    }
+
     return this.makeRequest(`/focus-stocks/${id}`, {
       method: 'PUT',
       body: JSON.stringify(stockData)
