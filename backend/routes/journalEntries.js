@@ -5,7 +5,7 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// Validation middleware
+// Enhanced validation middleware with detailed logging
 const validateJournalEntry = [
   body('stockName')
     .trim()
@@ -40,31 +40,52 @@ const validateJournalEntry = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('Quantity must be at least 1'),
-  // Updated exitPrice validation - check if it exists and is valid when status is closed
+  // Custom validation for closed trades
   body('exitPrice')
-    .if(body('status').equals('closed'))
-    .notEmpty()
-    .withMessage('Exit price is required for closed trades')
-    .isFloat({ min: 0.01 })
-    .withMessage('Exit price must be greater than 0'),
-  // Updated exitDate validation - check if it exists when status is closed
-  body('exitDate')
-    .if(body('status').equals('closed'))
-    .notEmpty()
-    .withMessage('Exit date is required for closed trades')
-    .isISO8601()
-    .withMessage('Exit date must be a valid date')
     .custom((value, { req }) => {
-      if (req.body.entryDate) {
-        const entryDate = new Date(req.body.entryDate);
-        const exitDate = new Date(value);
-        if (exitDate < entryDate) {
-          throw new Error('Exit date must be after entry date');
+      console.log('Validating exitPrice:', {
+        value,
+        type: typeof value,
+        status: req.body.status,
+        hasValue: value !== undefined && value !== null && value !== ''
+      });
+      
+      if (req.body.status === 'closed') {
+        if (value === undefined || value === null || value === '' || value === 0) {
+          throw new Error('Exit price is required for closed trades');
         }
-        const today = new Date();
-        today.setHours(23, 59, 59, 999);
-        if (exitDate > today) {
-          throw new Error('Exit date cannot be in the future');
+        const numValue = parseFloat(value);
+        if (isNaN(numValue) || numValue <= 0) {
+          throw new Error('Exit price must be greater than 0');
+        }
+      }
+      return true;
+    }),
+  body('exitDate')
+    .custom((value, { req }) => {
+      console.log('Validating exitDate:', {
+        value,
+        type: typeof value,
+        status: req.body.status,
+        hasValue: value !== undefined && value !== null && value !== ''
+      });
+      
+      if (req.body.status === 'closed') {
+        if (!value || value === '') {
+          throw new Error('Exit date is required for closed trades');
+        }
+        
+        if (req.body.entryDate) {
+          const entryDate = new Date(req.body.entryDate);
+          const exitDate = new Date(value);
+          if (exitDate < entryDate) {
+            throw new Error('Exit date must be after entry date');
+          }
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+          if (exitDate > today) {
+            throw new Error('Exit date cannot be in the future');
+          }
         }
       }
       return true;
@@ -196,35 +217,63 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.post('/', auth, validateJournalEntry, async (req, res) => {
   try {
+    console.log('=== CREATE JOURNAL ENTRY DEBUG ===');
+    console.log('Raw request body:', JSON.stringify(req.body, null, 2));
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('User ID:', req.user._id);
+    
+    // Check validation errors first
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
+      console.log('Validation errors found:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array().map(err => err.msg)
+        errors: errors.array().map(err => ({
+          field: err.path || err.param,
+          message: err.msg,
+          value: err.value
+        }))
       });
     }
 
-    console.log('Creating journal entry with body:', req.body);
-    console.log('User:', req.user._id);
+    console.log('Validation passed, processing data...');
 
-    // Validate that exitPrice and exitDate are provided for closed trades
+    // Additional manual validation for closed trades
     if (req.body.status === 'closed') {
-      if (!req.body.exitPrice || parseFloat(req.body.exitPrice) <= 0) {
+      console.log('Validating closed trade requirements...');
+      
+      // Check exitPrice
+      if (!req.body.exitPrice && req.body.exitPrice !== 0) {
+        console.log('exitPrice missing for closed trade');
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
-          errors: ['Exit price is required and must be greater than 0 for closed trades']
+          errors: [{ field: 'exitPrice', message: 'Exit price is required for closed trades', value: req.body.exitPrice }]
         });
       }
+      
+      const exitPriceNum = parseFloat(req.body.exitPrice);
+      if (isNaN(exitPriceNum) || exitPriceNum <= 0) {
+        console.log('exitPrice invalid:', req.body.exitPrice, 'parsed:', exitPriceNum);
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: [{ field: 'exitPrice', message: 'Exit price must be greater than 0', value: req.body.exitPrice }]
+        });
+      }
+      
+      // Check exitDate
       if (!req.body.exitDate) {
+        console.log('exitDate missing for closed trade');
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
-          errors: ['Exit date is required for closed trades']
+          errors: [{ field: 'exitDate', message: 'Exit date is required for closed trades', value: req.body.exitDate }]
         });
       }
+      
+      console.log('Closed trade validation passed');
     }
 
     // Create entry data without month/year - they will be auto-generated
@@ -245,13 +294,14 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       })
     };
     
-    console.log('Final entry data (before save):', entryData);
+    console.log('Final entry data (before save):', JSON.stringify(entryData, null, 2));
     
     const entry = new JournalEntry(entryData);
     await entry.save();
     
     console.log('Entry saved successfully:', entry._id);
     console.log('Auto-generated month/year:', entry.month, entry.year);
+    console.log('=== END DEBUG ===');
     
     res.status(201).json({
       success: true,
@@ -263,17 +313,22 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
     
     // Handle validation errors
     if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(e => e.message);
+      const errors = Object.values(error.errors).map(e => ({
+        field: e.path,
+        message: e.message,
+        value: e.value
+      }));
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
+        message: 'Database validation failed',
         errors
       });
     }
     
     res.status(500).json({
       success: false,
-      message: 'Error creating journal entry'
+      message: 'Error creating journal entry',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -283,31 +338,58 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
 // @access  Private
 router.put('/:id', auth, validateJournalEntry, async (req, res) => {
   try {
+    console.log('=== UPDATE JOURNAL ENTRY DEBUG ===');
+    console.log('Entry ID:', req.params.id);
+    console.log('Raw request body:', JSON.stringify(req.body, null, 2));
+    console.log('User ID:', req.user._id);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors found:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
-        errors: errors.array().map(err => err.msg)
+        errors: errors.array().map(err => ({
+          field: err.path || err.param,
+          message: err.msg,
+          value: err.value
+        }))
       });
     }
 
-    // Validate that exitPrice and exitDate are provided for closed trades
+    // Additional manual validation for closed trades
     if (req.body.status === 'closed') {
-      if (!req.body.exitPrice || parseFloat(req.body.exitPrice) <= 0) {
+      console.log('Validating closed trade requirements...');
+      
+      if (!req.body.exitPrice && req.body.exitPrice !== 0) {
+        console.log('exitPrice missing for closed trade');
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
-          errors: ['Exit price is required and must be greater than 0 for closed trades']
+          errors: [{ field: 'exitPrice', message: 'Exit price is required for closed trades', value: req.body.exitPrice }]
         });
       }
+      
+      const exitPriceNum = parseFloat(req.body.exitPrice);
+      if (isNaN(exitPriceNum) || exitPriceNum <= 0) {
+        console.log('exitPrice invalid:', req.body.exitPrice, 'parsed:', exitPriceNum);
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: [{ field: 'exitPrice', message: 'Exit price must be greater than 0', value: req.body.exitPrice }]
+        });
+      }
+      
       if (!req.body.exitDate) {
+        console.log('exitDate missing for closed trade');
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
-          errors: ['Exit date is required for closed trades']
+          errors: [{ field: 'exitDate', message: 'Exit date is required for closed trades', value: req.body.exitDate }]
         });
       }
+      
+      console.log('Closed trade validation passed');
     }
 
     // Create update data without month/year - they will be auto-generated
@@ -327,6 +409,8 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       })
     };
     
+    console.log('Update data:', JSON.stringify(updateData, null, 2));
+    
     const entry = await JournalEntry.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
       updateData,
@@ -340,6 +424,9 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       });
     }
     
+    console.log('Entry updated successfully:', entry._id);
+    console.log('=== END DEBUG ===');
+    
     res.json({
       success: true,
       message: 'Journal entry updated successfully',
@@ -350,17 +437,22 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
     
     // Handle validation errors
     if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(e => e.message);
+      const errors = Object.values(error.errors).map(e => ({
+        field: e.path,
+        message: e.message,
+        value: e.value
+      }));
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
+        message: 'Database validation failed',
         errors
       });
     }
     
     res.status(500).json({
       success: false,
-      message: 'Error updating journal entry'
+      message: 'Error updating journal entry',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -142,6 +142,9 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     setIsSubmitting(true);
     
     try {
+      console.log('=== FRONTEND TRADE MODAL DEBUG ===');
+      console.log('Form data before processing:', formData);
+      
       const tradeData: Omit<Trade, 'id'> = {
         symbol: formData.symbol.toUpperCase().trim(),
         type: formData.type,
@@ -154,28 +157,53 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         notes: formData.notes.trim() || undefined
       };
 
+      console.log('Processed trade data:', tradeData);
+
       // Additional validation before sending
       if (tradeData.status === 'CLOSED') {
+        console.log('Validating closed trade:', {
+          exitPrice: tradeData.exitPrice,
+          exitDate: tradeData.exitDate,
+          hasExitPrice: tradeData.exitPrice !== undefined,
+          hasExitDate: tradeData.exitDate !== undefined
+        });
+        
         if (!tradeData.exitPrice || tradeData.exitPrice <= 0) {
           setErrors({ exitPrice: 'Exit price is required for closed trades' });
+          console.log('Validation failed: exitPrice');
           return;
         }
         if (!tradeData.exitDate) {
           setErrors({ exitDate: 'Exit date is required for closed trades' });
+          console.log('Validation failed: exitDate');
           return;
         }
       }
 
-      console.log('Submitting trade data:', tradeData);
+      console.log('Final trade data being sent:', tradeData);
+      console.log('=== END FRONTEND TRADE MODAL DEBUG ===');
+      
       await onSave(tradeData);
       onClose();
     } catch (error: any) {
       console.error('Trade save error:', error);
-      // Error is handled by parent component, but we can also show it here
-      if (error.message.includes('Exit price is required')) {
+      
+      // Handle specific validation errors from backend
+      if (error.errors && Array.isArray(error.errors)) {
+        const newErrors: Record<string, string> = {};
+        error.errors.forEach((err: any) => {
+          if (err.field) {
+            newErrors[err.field] = err.message;
+          }
+        });
+        setErrors(newErrors);
+      } else if (error.message.includes('Exit price is required')) {
         setErrors({ exitPrice: 'Exit price is required for closed trades' });
       } else if (error.message.includes('Exit date is required')) {
         setErrors({ exitDate: 'Exit date is required for closed trades' });
+      } else {
+        // Show generic error
+        setErrors({ general: error.message || 'Failed to save trade' });
       }
     } finally {
       setIsSubmitting(false);
@@ -186,6 +214,10 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    // Clear general error when user makes changes
+    if (errors.general) {
+      setErrors(prev => ({ ...prev, general: '' }));
     }
   };
 
@@ -226,6 +258,16 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* General Error */}
+          {errors.general && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <p className="text-sm text-red-600">{errors.general}</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Symbol *

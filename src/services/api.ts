@@ -59,7 +59,8 @@ class ApiService {
           url: `${API_BASE_URL}${url}`,
           method: options.method || 'GET',
           hasToken: !!localStorage.getItem('authToken'),
-          headers: headers
+          headers: headers,
+          body: options.body
         });
       }
       
@@ -161,6 +162,10 @@ class ApiService {
   }
 
   async createJournalEntry(entryData: any) {
+    // Enhanced validation and logging
+    console.log('=== FRONTEND API CALL DEBUG ===');
+    console.log('Original entry data:', entryData);
+    
     // Validate required fields before sending
     if (!entryData.stockName || !entryData.stockName.trim()) {
       throw new Error('Stock name is required');
@@ -174,28 +179,56 @@ class ApiService {
     if (!entryData.currentPrice || entryData.currentPrice <= 0) {
       throw new Error('Current price must be greater than 0');
     }
+    
+    // Validate closed trade requirements
     if (entryData.status === 'closed') {
-      if (!entryData.exitPrice || entryData.exitPrice <= 0) {
+      if (!entryData.exitPrice && entryData.exitPrice !== 0) {
+        console.log('Frontend validation: exitPrice missing for closed trade');
         throw new Error('Exit price is required for closed trades');
       }
+      if (entryData.exitPrice <= 0) {
+        console.log('Frontend validation: exitPrice invalid:', entryData.exitPrice);
+        throw new Error('Exit price must be greater than 0');
+      }
       if (!entryData.exitDate) {
+        console.log('Frontend validation: exitDate missing for closed trade');
         throw new Error('Exit date is required for closed trades');
       }
     }
 
-    // Debug: Log the data being sent in development
-    if (import.meta.env.DEV) {
-      console.log('Creating journal entry with data:', entryData);
-      console.log('Current auth token exists:', !!localStorage.getItem('authToken'));
-    }
+    // Ensure all numeric values are properly formatted
+    const cleanedData = {
+      stockName: entryData.stockName.trim(),
+      entryPrice: Number(entryData.entryPrice),
+      entryDate: entryData.entryDate,
+      currentPrice: Number(entryData.currentPrice),
+      status: entryData.status,
+      remarks: entryData.remarks || '',
+      quantity: Number(entryData.quantity) || 1,
+      isTeamTrade: Boolean(entryData.isTeamTrade),
+      // Only include exit fields for closed trades
+      ...(entryData.status === 'closed' && {
+        exitPrice: Number(entryData.exitPrice),
+        exitDate: entryData.exitDate
+      })
+    };
+
+    console.log('Cleaned data being sent:', cleanedData);
+    console.log('JSON stringified:', JSON.stringify(cleanedData));
+    console.log('=== END FRONTEND DEBUG ===');
     
     return this.makeRequest('/journal-entries', {
       method: 'POST',
-      body: JSON.stringify(entryData)
+      body: JSON.stringify(cleanedData)
     });
   }
 
   async updateJournalEntry(id: string, entryData: any) {
+    // Enhanced validation and logging
+    console.log('=== FRONTEND UPDATE API CALL DEBUG ===');
+    console.log('Entry ID:', id);
+    console.log('Original entry data:', entryData);
+    
     // Validate required fields before sending
     if (!entryData.stockName || !entryData.stockName.trim()) {
       throw new Error('Stock name is required');
@@ -209,18 +242,47 @@ class ApiService {
     if (!entryData.currentPrice || entryData.currentPrice <= 0) {
       throw new Error('Current price must be greater than 0');
     }
+    
+    // Validate closed trade requirements
     if (entryData.status === 'closed') {
-      if (!entryData.exitPrice || entryData.exitPrice <= 0) {
+      if (!entryData.exitPrice && entryData.exitPrice !== 0) {
+        console.log('Frontend validation: exitPrice missing for closed trade');
         throw new Error('Exit price is required for closed trades');
       }
+      if (entryData.exitPrice <= 0) {
+        console.log('Frontend validation: exitPrice invalid:', entryData.exitPrice);
+        throw new Error('Exit price must be greater than 0');
+      }
       if (!entryData.exitDate) {
+        console.log('Frontend validation: exitDate missing for closed trade');
         throw new Error('Exit date is required for closed trades');
       }
     }
 
+    // Ensure all numeric values are properly formatted
+    const cleanedData = {
+      stockName: entryData.stockName.trim(),
+      entryPrice: Number(entryData.entryPrice),
+      entryDate: entryData.entryDate,
+      currentPrice: Number(entryData.currentPrice),
+      status: entryData.status,
+      remarks: entryData.remarks || '',
+      quantity: Number(entryData.quantity) || 1,
+      isTeamTrade: Boolean(entryData.isTeamTrade),
+      // Only include exit fields for closed trades
+      ...(entryData.status === 'closed' && {
+        exitPrice: Number(entryData.exitPrice),
+        exitDate: entryData.exitDate
+      })
+    };
+
+    console.log('Cleaned data being sent:', cleanedData);
+    console.log('JSON stringified:', JSON.stringify(cleanedData));
+    console.log('=== END FRONTEND UPDATE DEBUG ===');
+
     return this.makeRequest(`/journal-entries/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(entryData)
+      body: JSON.stringify(cleanedData)
     });
   }
 
