@@ -54,13 +54,15 @@ export function useTrades(userEmail?: string) {
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
         currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
-        status: tradeData.status.toLowerCase(),
+        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed', // Convert ACTIVE/CLOSED to open/closed
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,
         exitDate: tradeData.status === 'CLOSED' ? tradeData.exitDate : undefined,
         isTeamTrade: false
       };
+      
+      console.log('Sending trade data to API:', entryData);
       
       const response = await apiService.createJournalEntry(entryData);
       
@@ -81,7 +83,7 @@ export function useTrades(userEmail?: string) {
         entryPrice: tradeData.entryPrice,
         entryDate: tradeData.entryDate,
         currentPrice: tradeData.status === 'CLOSED' && tradeData.exitPrice ? tradeData.exitPrice : tradeData.entryPrice,
-        status: tradeData.status.toLowerCase(),
+        status: tradeData.status === 'ACTIVE' ? 'open' : 'closed', // Convert ACTIVE/CLOSED to open/closed
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         exitPrice: tradeData.status === 'CLOSED' ? tradeData.exitPrice : undefined,

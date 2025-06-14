@@ -168,12 +168,16 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
         errors: errors.array()
       });
     }
+
+    console.log('Creating journal entry with body:', req.body);
+    console.log('User:', req.user._id);
 
     // Validate closed trade requirements
     if (req.body.status === 'closed') {
@@ -199,8 +203,12 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       isTeamTrade: req.body.isTeamTrade || false
     };
     
+    console.log('Final entry data:', entryData);
+    
     const entry = new JournalEntry(entryData);
     await entry.save();
+    
+    console.log('Entry saved successfully:', entry._id);
     
     res.status(201).json({
       success: true,
