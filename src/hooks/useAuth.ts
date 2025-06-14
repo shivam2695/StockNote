@@ -13,9 +13,15 @@ export const useAuth = () => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       const token = localStorage.getItem('authToken');
+      const currentUser = localStorage.getItem('currentUser');
       
-      if (token) {
+      console.log('Checking auth status:', { hasToken: !!token, hasUser: !!currentUser });
+      
+      if (token && currentUser) {
         try {
+          // Parse stored user data
+          const user = JSON.parse(currentUser);
+          
           // Verify token with backend
           const response = await apiService.getUserProfile();
           if (response.success && response.data.user) {
@@ -23,26 +29,33 @@ export const useAuth = () => {
               isAuthenticated: true,
               user: response.data.user,
             });
+            console.log('Auth verified with backend');
           } else {
             // Invalid token, clear it
             localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            console.log('Invalid token, cleared storage');
           }
         } catch (error) {
           console.error('Auth check failed:', error);
-          localStorage.removeItem('authToken');
           
-          // If backend is down, try to use local storage as fallback
-          const localUser = localStorage.getItem('currentUser');
-          if (localUser) {
+          // If backend is down but we have valid local data, use it
+          if (error instanceof Error && error.message.includes('Backend returned HTML')) {
             try {
-              const user = JSON.parse(localUser);
+              const user = JSON.parse(currentUser);
               setAuthState({
                 isAuthenticated: true,
                 user: user,
               });
+              console.log('Using local auth data (backend offline)');
             } catch (e) {
+              localStorage.removeItem('authToken');
               localStorage.removeItem('currentUser');
             }
+          } else {
+            // Clear invalid tokens
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
           }
         }
       }
@@ -85,6 +98,7 @@ export const useAuth = () => {
         users.push({ ...user, password, verified: true });
         localStorage.setItem('stockNoteUsers', JSON.stringify(users));
         localStorage.setItem('currentUser', JSON.stringify(user));
+        localStorage.setItem('authToken', 'local-token-' + Date.now());
         
         setAuthState({
           isAuthenticated: true,
@@ -108,6 +122,7 @@ export const useAuth = () => {
           user: response.data.user,
         });
         localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+        console.log('Login successful, user stored');
         
         return response;
       }
@@ -136,6 +151,7 @@ export const useAuth = () => {
           user: userData,
         });
         localStorage.setItem('currentUser', JSON.stringify(userData));
+        localStorage.setItem('authToken', 'local-token-' + Date.now());
         
         return { success: true, data: { user: userData } };
       }
@@ -154,6 +170,7 @@ export const useAuth = () => {
           user: response.data.user,
         });
         localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+        console.log('Email verified, user logged in');
       }
       
       return response;
@@ -192,6 +209,8 @@ export const useAuth = () => {
         user: null,
       });
       localStorage.removeItem('currentUser');
+      localStorage.removeItem('authToken');
+      console.log('Logged out, storage cleared');
     }
   };
 

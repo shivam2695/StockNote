@@ -33,7 +33,7 @@ class ApiService {
         
         // Token expired or invalid
         localStorage.removeItem('authToken');
-        window.location.href = '/';
+        localStorage.removeItem('currentUser');
         throw new Error('Session expired. Please login again.');
       }
       
@@ -49,10 +49,20 @@ class ApiService {
 
   private async makeRequest(url: string, options: RequestInit = {}) {
     try {
+      const headers = this.getAuthHeaders();
+      
+      // Debug: Log the request details
+      console.log('Making API request:', {
+        url: `${API_BASE_URL}${url}`,
+        method: options.method || 'GET',
+        hasToken: !!localStorage.getItem('authToken'),
+        headers: headers
+      });
+      
       const response = await fetch(`${API_BASE_URL}${url}`, {
         ...options,
         headers: {
-          ...this.getAuthHeaders(),
+          ...headers,
           ...options.headers
         }
       });
@@ -73,6 +83,7 @@ class ApiService {
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
+      console.log('Token stored:', data.data.token.substring(0, 20) + '...');
     }
     
     return data;
@@ -93,6 +104,7 @@ class ApiService {
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
+      console.log('Token stored after verification:', data.data.token.substring(0, 20) + '...');
     }
     
     return data;
@@ -126,6 +138,7 @@ class ApiService {
       console.warn('Logout request failed:', error);
     } finally {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
     }
   }
 
@@ -140,6 +153,10 @@ class ApiService {
   }
 
   async createJournalEntry(entryData: any) {
+    // Debug: Log the data being sent
+    console.log('Creating journal entry with data:', entryData);
+    console.log('Current auth token exists:', !!localStorage.getItem('authToken'));
+    
     return this.makeRequest('/journal-entries', {
       method: 'POST',
       body: JSON.stringify(entryData)
