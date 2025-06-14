@@ -72,7 +72,7 @@ export function useTrades(userEmail?: string) {
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         isTeamTrade: false,
-        // Only include exit fields if status is closed
+        // Include exit fields for closed trades
         ...(tradeData.status === 'CLOSED' && {
           exitPrice: tradeData.exitPrice,
           exitDate: tradeData.exitDate
@@ -84,7 +84,7 @@ export function useTrades(userEmail?: string) {
       const response = await apiService.createJournalEntry(entryData);
       
       if (response.success) {
-        await loadTrades(); // Reload trades from server
+        await loadTrades(); // Reload from server
       }
     } catch (error) {
       console.error('Add trade error:', error);
@@ -118,7 +118,7 @@ export function useTrades(userEmail?: string) {
         remarks: tradeData.notes || '',
         quantity: tradeData.quantity,
         isTeamTrade: false,
-        // Only include exit fields if status is closed
+        // Include exit fields for closed trades
         ...(tradeData.status === 'CLOSED' && {
           exitPrice: tradeData.exitPrice,
           exitDate: tradeData.exitDate
@@ -130,7 +130,7 @@ export function useTrades(userEmail?: string) {
       const response = await apiService.updateJournalEntry(tradeId, entryData);
       
       if (response.success) {
-        await loadTrades(); // Reload trades from server
+        await loadTrades(); // Reload from server
       }
     } catch (error) {
       console.error('Update trade error:', error);
@@ -143,7 +143,7 @@ export function useTrades(userEmail?: string) {
       const response = await apiService.deleteJournalEntry(tradeId);
       
       if (response.success) {
-        await loadTrades(); // Reload trades from server
+        await loadTrades(); // Reload from server
       }
     } catch (error) {
       console.error('Delete trade error:', error);

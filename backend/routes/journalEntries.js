@@ -40,34 +40,31 @@ const validateJournalEntry = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('Quantity must be at least 1'),
+  // Updated exitPrice validation - check if it exists and is valid when status is closed
   body('exitPrice')
-    .optional()
-    .custom((value, { req }) => {
-      if (req.body.status === 'closed') {
-        if (!value || parseFloat(value) <= 0) {
-          throw new Error('Exit price is required and must be greater than 0 for closed trades');
-        }
-      }
-      return true;
-    }),
+    .if(body('status').equals('closed'))
+    .notEmpty()
+    .withMessage('Exit price is required for closed trades')
+    .isFloat({ min: 0.01 })
+    .withMessage('Exit price must be greater than 0'),
+  // Updated exitDate validation - check if it exists when status is closed
   body('exitDate')
-    .optional()
+    .if(body('status').equals('closed'))
+    .notEmpty()
+    .withMessage('Exit date is required for closed trades')
+    .isISO8601()
+    .withMessage('Exit date must be a valid date')
     .custom((value, { req }) => {
-      if (req.body.status === 'closed') {
-        if (!value) {
-          throw new Error('Exit date is required for closed trades');
+      if (req.body.entryDate) {
+        const entryDate = new Date(req.body.entryDate);
+        const exitDate = new Date(value);
+        if (exitDate < entryDate) {
+          throw new Error('Exit date must be after entry date');
         }
-        if (req.body.entryDate) {
-          const entryDate = new Date(req.body.entryDate);
-          const exitDate = new Date(value);
-          if (exitDate < entryDate) {
-            throw new Error('Exit date must be after entry date');
-          }
-          const today = new Date();
-          today.setHours(23, 59, 59, 999);
-          if (exitDate > today) {
-            throw new Error('Exit date cannot be in the future');
-          }
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        if (exitDate > today) {
+          throw new Error('Exit date cannot be in the future');
         }
       }
       return true;
@@ -212,20 +209,38 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
     console.log('Creating journal entry with body:', req.body);
     console.log('User:', req.user._id);
 
+    // Validate that exitPrice and exitDate are provided for closed trades
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice || parseFloat(req.body.exitPrice) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit price is required and must be greater than 0 for closed trades']
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit date is required for closed trades']
+        });
+      }
+    }
+
     // Create entry data without month/year - they will be auto-generated
     const entryData = {
       user: req.user._id,
       stockName: req.body.stockName.toUpperCase().trim(),
-      entryPrice: req.body.entryPrice,
+      entryPrice: parseFloat(req.body.entryPrice),
       entryDate: req.body.entryDate,
-      currentPrice: req.body.currentPrice,
+      currentPrice: parseFloat(req.body.currentPrice),
       status: req.body.status,
-      quantity: req.body.quantity || 1,
+      quantity: parseInt(req.body.quantity) || 1,
       isTeamTrade: req.body.isTeamTrade || false,
       remarks: req.body.remarks || '',
       // Only include exit fields if status is closed
       ...(req.body.status === 'closed' && {
-        exitPrice: req.body.exitPrice,
+        exitPrice: parseFloat(req.body.exitPrice),
         exitDate: req.body.exitDate
       })
     };
@@ -277,19 +292,37 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       });
     }
 
+    // Validate that exitPrice and exitDate are provided for closed trades
+    if (req.body.status === 'closed') {
+      if (!req.body.exitPrice || parseFloat(req.body.exitPrice) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit price is required and must be greater than 0 for closed trades']
+        });
+      }
+      if (!req.body.exitDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: ['Exit date is required for closed trades']
+        });
+      }
+    }
+
     // Create update data without month/year - they will be auto-generated
     const updateData = {
       stockName: req.body.stockName.toUpperCase().trim(),
-      entryPrice: req.body.entryPrice,
+      entryPrice: parseFloat(req.body.entryPrice),
       entryDate: req.body.entryDate,
-      currentPrice: req.body.currentPrice,
+      currentPrice: parseFloat(req.body.currentPrice),
       status: req.body.status,
-      quantity: req.body.quantity || 1,
+      quantity: parseInt(req.body.quantity) || 1,
       isTeamTrade: req.body.isTeamTrade || false,
       remarks: req.body.remarks || '',
       // Only include exit fields if status is closed
       ...(req.body.status === 'closed' && {
-        exitPrice: req.body.exitPrice,
+        exitPrice: parseFloat(req.body.exitPrice),
         exitDate: req.body.exitDate
       })
     };
