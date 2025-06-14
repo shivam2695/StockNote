@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
   onSwitchToSignUp: () => void;
   onForgotPassword: () => void;
+  error?: string;
 }
 
-export default function LoginForm({ onLogin, onSwitchToSignUp, onForgotPassword }: LoginFormProps) {
+export default function LoginForm({ onLogin, onSwitchToSignUp, onForgotPassword, error }: LoginFormProps) {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -83,6 +84,16 @@ export default function LoginForm({ onLogin, onSwitchToSignUp, onForgotPassword 
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600">Sign in to your StockNote account</p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="flex mb-8 bg-gray-100 rounded-lg p-1">

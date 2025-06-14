@@ -5,8 +5,8 @@ import OTPVerification from './OTPVerification';
 import ForgotPassword from './ForgotPassword';
 
 interface AuthContainerProps {
-  onLogin: (email: string, password: string) => void;
-  onSignUp: (name: string, email: string, password: string) => void;
+  onLogin: (email: string, password: string) => Promise<void>;
+  onSignUp: (name: string, email: string, password: string) => Promise<any>;
 }
 
 export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps) {
@@ -16,42 +16,36 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
     email: string;
     password: string;
   } | null>(null);
+  const [error, setError] = useState('');
 
   const handleLogin = async (email: string, password: string) => {
     try {
+      setError('');
       await onLogin(email, password);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Login failed');
+      setError(error instanceof Error ? error.message : 'Login failed');
     }
   };
 
   const handleSignUpRequest = async (name: string, email: string, password: string) => {
     try {
-      // Check if user already exists
-      const existingUsers = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
-      const userExists = existingUsers.find((user: any) => user.email === email);
+      setError('');
+      const result = await onSignUp(name, email, password);
       
-      if (userExists) {
-        throw new Error('User with this email already exists');
+      if (result?.requiresVerification) {
+        setPendingSignUp({ name, email, password });
+        setCurrentView('otp');
       }
-
-      // Store pending signup data
-      setPendingSignUp({ name, email, password });
-      setCurrentView('otp');
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Sign up failed');
+      setError(error instanceof Error ? error.message : 'Sign up failed');
     }
   };
 
   const handleOTPVerified = async () => {
-    if (pendingSignUp) {
-      try {
-        await onSignUp(pendingSignUp.name, pendingSignUp.email, pendingSignUp.password);
-        setPendingSignUp(null);
-      } catch (error) {
-        alert(error instanceof Error ? error.message : 'Sign up failed');
-      }
-    }
+    // OTP verification is handled in the backend
+    // User should be automatically logged in after verification
+    setPendingSignUp(null);
+    setCurrentView('login');
   };
 
   const handleBackToSignUp = () => {
@@ -61,14 +55,17 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
 
   const handleBackToLogin = () => {
     setCurrentView('login');
+    setError('');
   };
 
   const handleForgotPassword = () => {
     setCurrentView('forgot-password');
+    setError('');
   };
 
   const handlePasswordReset = () => {
     setCurrentView('login');
+    setError('');
   };
 
   if (currentView === 'otp' && pendingSignUp) {
@@ -96,6 +93,7 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
       <SignUpForm
         onSignUp={handleSignUpRequest}
         onSwitchToLogin={() => setCurrentView('login')}
+        error={error}
       />
     );
   }
@@ -105,6 +103,7 @@ export default function AuthContainer({ onLogin, onSignUp }: AuthContainerProps)
       onLogin={handleLogin}
       onSwitchToSignUp={() => setCurrentView('signup')}
       onForgotPassword={handleForgotPassword}
+      error={error}
     />
   );
 }

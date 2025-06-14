@@ -45,12 +45,12 @@ export const useAuth = () => {
       
       if (response.success) {
         // For signup, we might need email verification
-        if (response.data.requiresEmailVerification) {
+        if (response.data?.requiresEmailVerification) {
           return { requiresVerification: true, email };
         }
         
         // If no verification needed, auto-login
-        if (response.data.user) {
+        if (response.data?.user) {
           setAuthState({
             isAuthenticated: true,
             user: response.data.user,
@@ -103,6 +103,24 @@ export const useAuth = () => {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      return await apiService.forgotPassword(email);
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string, token: string, newPassword: string) => {
+    try {
+      return await apiService.resetPassword(email, token, newPassword);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await apiService.logout();
@@ -140,6 +158,8 @@ export const useAuth = () => {
     signUp,
     login,
     verifyEmail,
+    forgotPassword,
+    resetPassword,
     logout,
     updateProfile,
   };

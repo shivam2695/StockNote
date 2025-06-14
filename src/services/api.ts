@@ -1,5 +1,5 @@
 // API service for backend integration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://stocknote-backend.onrender.com/api';
 
 class ApiService {
   private getAuthHeaders() {
@@ -14,21 +14,43 @@ class ApiService {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.message || 'API request failed');
+      // Handle specific error cases
+      if (response.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('authToken');
+        window.location.href = '/';
+        throw new Error('Session expired. Please login again.');
+      }
+      
+      throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
     }
     
     return data;
   }
 
+  private async makeRequest(url: string, options: RequestInit = {}) {
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        ...options,
+        headers: {
+          ...this.getAuthHeaders(),
+          ...options.headers
+        }
+      });
+      
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error(`API Request failed: ${url}`, error);
+      throw error;
+    }
+  }
+
   // Authentication
   async login(email: string, password: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const data = await this.makeRequest('/auth/login', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email, password })
     });
-    
-    const data = await this.handleResponse(response);
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
@@ -38,23 +60,17 @@ class ApiService {
   }
 
   async signup(name: string, email: string, password: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+    return this.makeRequest('/auth/signup', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ name, email, password })
     });
-    
-    return this.handleResponse(response);
   }
 
   async verifyEmail(email: string, token: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+    const data = await this.makeRequest('/auth/verify-email', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ email, token })
     });
-    
-    const data = await this.handleResponse(response);
     
     if (data.success && data.data.token) {
       localStorage.setItem('authToken', data.data.token);
@@ -63,246 +79,251 @@ class ApiService {
     return data;
   }
 
+  async forgotPassword(email: string) {
+    return this.makeRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  }
+
+  async resetPassword(email: string, token: string, newPassword: string) {
+    return this.makeRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, token, newPassword })
+    });
+  }
+
   async logout() {
-    localStorage.removeItem('authToken');
-    
     try {
-      await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: this.getAuthHeaders()
-      });
+      await this.makeRequest('/auth/logout', { method: 'POST' });
     } catch (error) {
-      // Logout locally even if server request fails
       console.warn('Logout request failed:', error);
+    } finally {
+      localStorage.removeItem('authToken');
     }
   }
 
   // Journal Entries (Trades)
   async getJournalEntries(params?: any) {
     const queryString = params ? new URLSearchParams(params).toString() : '';
-    const response = await fetch(`${API_BASE_URL}/journal-entries?${queryString}`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest(`/journal-entries${queryString ? `?${queryString}` : ''}`);
   }
 
   async createJournalEntry(entryData: any) {
-    const response = await fetch(`${API_BASE_URL}/journal-entries`, {
+    return this.makeRequest('/journal-entries', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(entryData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async updateJournalEntry(id: string, entryData: any) {
-    const response = await fetch(`${API_BASE_URL}/journal-entries/${id}`, {
+    return this.makeRequest(`/journal-entries/${id}`, {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(entryData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async deleteJournalEntry(id: string) {
-    const response = await fetch(`${API_BASE_URL}/journal-entries/${id}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders()
+    return this.makeRequest(`/journal-entries/${id}`, {
+      method: 'DELETE'
     });
-    
-    return this.handleResponse(response);
   }
 
   async getJournalStats() {
-    const response = await fetch(`${API_BASE_URL}/journal-entries/stats`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest('/journal-entries/stats');
+  }
+
+  async getMonthlyPerformance(year: number) {
+    return this.makeRequest(`/journal-entries/monthly/${year}`);
   }
 
   // Focus Stocks
   async getFocusStocks(params?: any) {
     const queryString = params ? new URLSearchParams(params).toString() : '';
-    const response = await fetch(`${API_BASE_URL}/focus-stocks?${queryString}`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest(`/focus-stocks${queryString ? `?${queryString}` : ''}`);
   }
 
   async createFocusStock(stockData: any) {
-    const response = await fetch(`${API_BASE_URL}/focus-stocks`, {
+    return this.makeRequest('/focus-stocks', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(stockData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async updateFocusStock(id: string, stockData: any) {
-    const response = await fetch(`${API_BASE_URL}/focus-stocks/${id}`, {
+    return this.makeRequest(`/focus-stocks/${id}`, {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(stockData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async deleteFocusStock(id: string) {
-    const response = await fetch(`${API_BASE_URL}/focus-stocks/${id}`, {
-      method: 'DELETE',
-      headers: this.getAuthHeaders()
+    return this.makeRequest(`/focus-stocks/${id}`, {
+      method: 'DELETE'
     });
-    
-    return this.handleResponse(response);
   }
 
   async markFocusStockTaken(id: string, tradeTaken: boolean, tradeDate?: string) {
-    const response = await fetch(`${API_BASE_URL}/focus-stocks/${id}/mark-taken`, {
+    return this.makeRequest(`/focus-stocks/${id}/mark-taken`, {
       method: 'PATCH',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ tradeTaken, tradeDate })
     });
-    
-    return this.handleResponse(response);
   }
 
   async getFocusStockStats() {
-    const response = await fetch(`${API_BASE_URL}/focus-stocks/stats`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest('/focus-stocks/stats');
+  }
+
+  async getPendingFocusStocks() {
+    return this.makeRequest('/focus-stocks/pending');
   }
 
   // Teams
   async getTeams() {
-    const response = await fetch(`${API_BASE_URL}/teams`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest('/teams');
   }
 
   async createTeam(teamData: any) {
-    const response = await fetch(`${API_BASE_URL}/teams`, {
+    return this.makeRequest('/teams', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(teamData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async getTeam(id: string) {
-    const response = await fetch(`${API_BASE_URL}/teams/${id}`, {
-      headers: this.getAuthHeaders()
+    return this.makeRequest(`/teams/${id}`);
+  }
+
+  async updateTeam(id: string, teamData: any) {
+    return this.makeRequest(`/teams/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(teamData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async addTeamMember(teamId: string, userEmail: string, role: string = 'member') {
-    const response = await fetch(`${API_BASE_URL}/teams/${teamId}/members`, {
+    return this.makeRequest(`/teams/${teamId}/members`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ userEmail, role })
     });
-    
-    return this.handleResponse(response);
+  }
+
+  async removeTeamMember(teamId: string, userId: string) {
+    return this.makeRequest(`/teams/${teamId}/members/${userId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  async getTeamStats(teamId: string) {
+    return this.makeRequest(`/teams/${teamId}/stats`);
   }
 
   // Team Trades
   async getTeamTrades(teamId: string, params?: any) {
     const queryString = params ? new URLSearchParams(params).toString() : '';
-    const response = await fetch(`${API_BASE_URL}/team-trades/team/${teamId}?${queryString}`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest(`/team-trades/team/${teamId}${queryString ? `?${queryString}` : ''}`);
   }
 
   async createTeamTrade(tradeData: any) {
-    const response = await fetch(`${API_BASE_URL}/team-trades`, {
+    return this.makeRequest('/team-trades', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(tradeData)
     });
-    
-    return this.handleResponse(response);
+  }
+
+  async updateTeamTrade(id: string, tradeData: any) {
+    return this.makeRequest(`/team-trades/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(tradeData)
+    });
+  }
+
+  async deleteTeamTrade(id: string) {
+    return this.makeRequest(`/team-trades/${id}`, {
+      method: 'DELETE'
+    });
   }
 
   async voteOnTeamTrade(tradeId: string, vote: string, comment?: string) {
-    const response = await fetch(`${API_BASE_URL}/team-trades/${tradeId}/vote`, {
+    return this.makeRequest(`/team-trades/${tradeId}/vote`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ vote, comment })
     });
-    
-    return this.handleResponse(response);
+  }
+
+  async getTeamTradeStats(teamId: string) {
+    return this.makeRequest(`/team-trades/team/${teamId}/stats`);
+  }
+
+  async getTeamMonthlyPerformance(teamId: string, year: number) {
+    return this.makeRequest(`/team-trades/team/${teamId}/monthly/${year}`);
   }
 
   // Books
   async getBooks(params?: any) {
     const queryString = params ? new URLSearchParams(params).toString() : '';
-    const response = await fetch(`${API_BASE_URL}/books?${queryString}`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest(`/books${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getBook(id: string) {
+    return this.makeRequest(`/books/${id}`);
+  }
+
+  async getPopularBooks(limit: number = 10) {
+    return this.makeRequest(`/books/popular?limit=${limit}`);
+  }
+
+  async searchBooks(query: string, options?: any) {
+    const params = new URLSearchParams({ q: query, ...options });
+    return this.makeRequest(`/books/search?${params.toString()}`);
   }
 
   async rateBook(bookId: string, rating: number, review?: string) {
-    const response = await fetch(`${API_BASE_URL}/books/${bookId}/rate`, {
+    return this.makeRequest(`/books/${bookId}/rate`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ rating, review })
     });
-    
-    return this.handleResponse(response);
   }
 
   // User Profile
   async getUserProfile() {
-    const response = await fetch(`${API_BASE_URL}/users/profile`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest('/auth/me');
   }
 
   async updateUserProfile(profileData: any) {
-    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+    return this.makeRequest('/users/profile', {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify(profileData)
     });
-    
-    return this.handleResponse(response);
   }
 
   async changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
-    const response = await fetch(`${API_BASE_URL}/users/change-password`, {
+    return this.makeRequest('/users/change-password', {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
       body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
     });
-    
-    return this.handleResponse(response);
+  }
+
+  async deleteAccount(password: string) {
+    return this.makeRequest('/users/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ password, confirmDelete: 'DELETE' })
+    });
   }
 
   async getDashboardData() {
-    const response = await fetch(`${API_BASE_URL}/users/dashboard`, {
-      headers: this.getAuthHeaders()
-    });
-    
-    return this.handleResponse(response);
+    return this.makeRequest('/users/dashboard');
+  }
+
+  // Health Check
+  async healthCheck() {
+    try {
+      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
+      return await response.json();
+    } catch (error) {
+      console.error('Health check failed:', error);
+      throw error;
+    }
   }
 }
 
