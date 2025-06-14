@@ -30,6 +30,20 @@ export const useAuth = () => {
         } catch (error) {
           console.error('Auth check failed:', error);
           localStorage.removeItem('authToken');
+          
+          // If backend is down, try to use local storage as fallback
+          const localUser = localStorage.getItem('currentUser');
+          if (localUser) {
+            try {
+              const user = JSON.parse(localUser);
+              setAuthState({
+                isAuthenticated: true,
+                user: user,
+              });
+            } catch (e) {
+              localStorage.removeItem('currentUser');
+            }
+          }
         }
       }
       
@@ -55,12 +69,38 @@ export const useAuth = () => {
             isAuthenticated: true,
             user: response.data.user,
           });
+          localStorage.setItem('currentUser', JSON.stringify(response.data.user));
         }
       }
       
       return response;
     } catch (error) {
       console.error('Signup error:', error);
+      
+      // Fallback to local storage if backend is down
+      if (error instanceof Error && error.message.includes('Backend returned HTML')) {
+        // Store user locally as fallback
+        const user = { name, email };
+        const users = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
+        
+        // Check if user already exists
+        const existingUser = users.find((u: any) => u.email === email);
+        if (existingUser) {
+          throw new Error('User with this email already exists');
+        }
+        
+        users.push({ ...user, password, verified: true });
+        localStorage.setItem('stockNoteUsers', JSON.stringify(users));
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        
+        setAuthState({
+          isAuthenticated: true,
+          user: user,
+        });
+        
+        return { success: true, data: { user } };
+      }
+      
       throw error;
     }
   };
@@ -74,6 +114,7 @@ export const useAuth = () => {
           isAuthenticated: true,
           user: response.data.user,
         });
+        localStorage.setItem('currentUser', JSON.stringify(response.data.user));
         
         return response;
       }
@@ -81,6 +122,26 @@ export const useAuth = () => {
       throw new Error(response.message || 'Login failed');
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Fallback to local storage if backend is down
+      if (error instanceof Error && error.message.includes('Backend returned HTML')) {
+        const users = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
+        const user = users.find((u: any) => u.email === email && u.password === password);
+        
+        if (!user) {
+          throw new Error('Invalid email or password');
+        }
+        
+        const userData = { name: user.name, email: user.email };
+        setAuthState({
+          isAuthenticated: true,
+          user: userData,
+        });
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        return { success: true, data: { user: userData } };
+      }
+      
       throw error;
     }
   };
@@ -94,6 +155,7 @@ export const useAuth = () => {
           isAuthenticated: true,
           user: response.data.user,
         });
+        localStorage.setItem('currentUser', JSON.stringify(response.data.user));
       }
       
       return response;
@@ -131,6 +193,7 @@ export const useAuth = () => {
         isAuthenticated: false,
         user: null,
       });
+      localStorage.removeItem('currentUser');
     }
   };
 
@@ -143,6 +206,7 @@ export const useAuth = () => {
           ...prev,
           user: response.data.user,
         }));
+        localStorage.setItem('currentUser', JSON.stringify(response.data.user));
       }
       
       return response;
