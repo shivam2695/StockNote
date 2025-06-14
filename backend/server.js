@@ -79,7 +79,13 @@ connectDB();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).send('Backend is up and running!');
+  res.status(200).json({
+    status: 'OK',
+    message: 'StockNote Backend is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '2.0.0'
+  });
 });
 
 // API routes

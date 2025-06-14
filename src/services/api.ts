@@ -11,6 +11,13 @@ class ApiService {
   }
 
   private async handleResponse(response: Response) {
+    const contentType = response.headers.get('content-type');
+    
+    // Check if response is HTML (likely an error page)
+    if (contentType && contentType.includes('text/html')) {
+      throw new Error('Backend returned HTML instead of JSON. Server may be down or misconfigured.');
+    }
+    
     const data = await response.json();
     
     if (!response.ok) {
@@ -101,6 +108,10 @@ class ApiService {
     } finally {
       localStorage.removeItem('authToken');
     }
+  }
+
+  async checkAuthStatus() {
+    return this.makeRequest('/auth/status');
   }
 
   // Journal Entries (Trades)
@@ -319,6 +330,13 @@ class ApiService {
   async healthCheck() {
     try {
       const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
+      const contentType = response.headers.get('content-type');
+      
+      // Check if response is HTML (likely an error page)
+      if (contentType && contentType.includes('text/html')) {
+        throw new Error('Backend returned HTML instead of JSON. Server may be down or misconfigured.');
+      }
+      
       return await response.json();
     } catch (error) {
       console.error('Health check failed:', error);
