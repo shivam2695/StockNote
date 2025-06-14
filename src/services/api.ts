@@ -23,6 +23,14 @@ class ApiService {
     if (!response.ok) {
       // Handle specific error cases
       if (response.status === 401) {
+        // Check if it's an email verification error
+        if (data.requiresEmailVerification) {
+          const error = new Error(data.message || 'Email verification required') as any;
+          error.requiresEmailVerification = true;
+          error.email = data.email;
+          throw error;
+        }
+        
         // Token expired or invalid
         localStorage.removeItem('authToken');
         window.location.href = '/';
