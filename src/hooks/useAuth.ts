@@ -1,89 +1,146 @@
 import { useState, useEffect } from 'react';
 import { AuthState, User } from '../types/Auth';
+import { apiService } from '../services/api';
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     user: null,
   });
+  const [loading, setLoading] = useState(true);
 
-  // Load authentication state from localStorage on mount
+  // Check for existing auth token on mount
   useEffect(() => {
-    const savedAuth = localStorage.getItem('authState');
-    if (savedAuth) {
-      try {
-        const parsedAuth = JSON.parse(savedAuth);
-        setAuthState(parsedAuth);
-      } catch (error) {
-        console.error('Failed to parse saved auth state:', error);
-        localStorage.removeItem('authState');
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem('authToken');
+      
+      if (token) {
+        try {
+          // Verify token with backend
+          const response = await apiService.getUserProfile();
+          if (response.success && response.data.user) {
+            setAuthState({
+              isAuthenticated: true,
+              user: response.data.user,
+            });
+          } else {
+            // Invalid token, clear it
+            localStorage.removeItem('authToken');
+          }
+        } catch (error) {
+          console.error('Auth check failed:', error);
+          localStorage.removeItem('authToken');
+        }
       }
-    }
+      
+      setLoading(false);
+    };
+
+    checkAuthStatus();
   }, []);
 
-  // Save authentication state to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('authState', JSON.stringify(authState));
-  }, [authState]);
-
-  const signUp = (name: string, email: string, password: string) => {
-    // Check if user already exists
-    const existingUsers = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
-    const userExists = existingUsers.find((user: any) => user.email === email);
-    
-    if (userExists) {
-      throw new Error('User with this email already exists');
+  const signUp = async (name: string, email: string, password: string) => {
+    try {
+      const response = await apiService.signup(name, email, password);
+      
+      if (response.success) {
+        // For signup, we might need email verification
+        if (response.data.requiresEmailVerification) {
+          return { requiresVerification: true, email };
+        }
+        
+        // If no verification needed, auto-login
+        if (response.data.user) {
+          setAuthState({
+            isAuthenticated: true,
+            user: response.data.user,
+          });
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
     }
-
-    // Create new user
-    const newUser = { name, email, password };
-    const updatedUsers = [...existingUsers, newUser];
-    localStorage.setItem('stockNoteUsers', JSON.stringify(updatedUsers));
-
-    // Auto-login after signup
-    const user: User = { email, name };
-    setAuthState({
-      isAuthenticated: true,
-      user,
-    });
   };
 
-  const login = (email: string, password: string) => {
-    // Check credentials
-    const existingUsers = JSON.parse(localStorage.getItem('stockNoteUsers') || '[]');
-    const user = existingUsers.find((u: any) => u.email === email && u.password === password);
-    
-    if (!user) {
-      throw new Error('Invalid email or password');
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await apiService.login(email, password);
+      
+      if (response.success && response.data.user) {
+        setAuthState({
+          isAuthenticated: true,
+          user: response.data.user,
+        });
+        
+        return response;
+      }
+      
+      throw new Error(response.message || 'Login failed');
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
-
-    const authenticatedUser: User = { email: user.email, name: user.name };
-    setAuthState({
-      isAuthenticated: true,
-      user: authenticatedUser,
-    });
   };
 
-  const logout = () => {
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-    });
-    // Clear auth state but keep user-specific data
-    localStorage.removeItem('authState');
+  const verifyEmail = async (email: string, token: string) => {
+    try {
+      const response = await apiService.verifyEmail(email, token);
+      
+      if (response.success && response.data.user) {
+        setAuthState({
+          isAuthenticated: true,
+          user: response.data.user,
+        });
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Email verification error:', error);
+      throw error;
+    }
   };
 
-  const clearUserData = (userEmail: string) => {
-    // Clear all user-specific data when needed
-    localStorage.removeItem(`stockRecordsTrades_${userEmail}`);
-    localStorage.removeItem(`stockRecordsFocusStocks_${userEmail}`);
+  const logout = async () => {
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+      });
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<User>) => {
+    try {
+      const response = await apiService.updateUserProfile(profileData);
+      
+      if (response.success && response.data.user) {
+        setAuthState(prev => ({
+          ...prev,
+          user: response.data.user,
+        }));
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Profile update error:', error);
+      throw error;
+    }
   };
 
   return {
     ...authState,
+    loading,
     signUp,
     login,
+    verifyEmail,
     logout,
-    clearUserData,
+    updateProfile,
   };
 };

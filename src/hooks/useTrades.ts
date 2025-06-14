@@ -1,56 +1,114 @@
 import { useState, useEffect } from 'react';
 import { Trade, TradeStats } from '../types/Trade';
+import { apiService } from '../services/api';
 
 export function useTrades(userEmail?: string) {
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Create user-specific storage key
-  const getStorageKey = () => {
-    if (!userEmail) return 'stockRecordsTrades';
-    return `stockRecordsTrades_${userEmail}`;
-  };
-
-  // Load trades from localStorage on component mount
-  useEffect(() => {
+  // Load trades from API
+  const loadTrades = async () => {
     if (!userEmail) return;
     
-    const storageKey = getStorageKey();
-    const savedTrades = localStorage.getItem(storageKey);
-    
-    if (savedTrades) {
-      setTrades(JSON.parse(savedTrades));
-    } else {
-      // Initialize with empty array for new users
-      setTrades([]);
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiService.getJournalEntries();
+      
+      if (response.success && response.data.entries) {
+        // Transform API data to match frontend Trade interface
+        const transformedTrades = response.data.entries.map((entry: any) => ({
+          id: entry._id,
+          symbol: entry.stockName,
+          type: entry.status === 'open' ? 'BUY' : (entry.exitPrice && entry.exitPrice < entry.entryPrice ? 'SELL' : 'BUY'),
+          entryPrice: entry.entryPrice,
+          exitPrice: entry.exitPrice,
+          quantity: entry.quantity || 1,
+          entryDate: entry.entryDate.split('T')[0], // Convert to YYYY-MM-DD format
+          exitDate: entry.exitDate ? entry.exitDate.split('T')[0] : undefined,
+          status: entry.status.toUpperCase() as 'ACTIVE' | 'CLOSED',
+          notes: entry.remarks
+        }));
+        
+        setTrades(transformedTrades);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load trades');
+      console.error('Load trades error:', err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadTrades();
   }, [userEmail]);
 
-  // Save trades to localStorage whenever trades change
-  useEffect(() => {
-    if (!userEmail) return;
-    
-    const storageKey = getStorageKey();
-    localStorage.setItem(storageKey, JSON.stringify(trades));
-  }, [trades, userEmail]);
-
-  const addTrade = (tradeData: Omit<Trade, 'id'>) => {
-    const newTrade: Trade = {
-      ...tradeData,
-      id: Date.now().toString()
-    };
-    setTrades(prev => [...prev, newTrade]);
+  const addTrade = async (tradeData: Omit<Trade, 'id'>) => {
+    try {
+      // Transform frontend Trade to API JournalEntry format
+      const entryData = {
+        stockName: tradeData.symbol,
+        entryPrice: tradeData.entryPrice,
+        entryDate: tradeData.entryDate,
+        currentPrice: tradeData.exitPrice || tradeData.entryPrice,
+        status: tradeData.status.toLowerCase(),
+        remarks: tradeData.notes,
+        quantity: tradeData.quantity,
+        exitPrice: tradeData.exitPrice,
+        exitDate: tradeData.exitDate
+      };
+      
+      const response = await apiService.createJournalEntry(entryData);
+      
+      if (response.success) {
+        await loadTrades(); // Reload trades from server
+      }
+    } catch (error) {
+      console.error('Add trade error:', error);
+      throw error;
+    }
   };
 
-  const updateTrade = (tradeId: string, tradeData: Omit<Trade, 'id'>) => {
-    setTrades(prev => 
-      prev.map(trade => 
-        trade.id === tradeId ? { ...tradeData, id: tradeId } : trade
-      )
-    );
+  const updateTrade = async (tradeId: string, tradeData: Omit<Trade, 'id'>) => {
+    try {
+      // Transform frontend Trade to API JournalEntry format
+      const entryData = {
+        stockName: tradeData.symbol,
+        entryPrice: tradeData.entryPrice,
+        entryDate: tradeData.entryDate,
+        currentPrice: tradeData.exitPrice || tradeData.entryPrice,
+        status: tradeData.status.toLowerCase(),
+        remarks: tradeData.notes,
+        quantity: tradeData.quantity,
+        exitPrice: tradeData.exitPrice,
+        exitDate: tradeData.exitDate
+      };
+      
+      const response = await apiService.updateJournalEntry(tradeId, entryData);
+      
+      if (response.success) {
+        await loadTrades(); // Reload trades from server
+      }
+    } catch (error) {
+      console.error('Update trade error:', error);
+      throw error;
+    }
   };
 
-  const deleteTrade = (tradeId: string) => {
-    setTrades(prev => prev.filter(trade => trade.id !== tradeId));
+  const deleteTrade = async (tradeId: string) => {
+    try {
+      const response = await apiService.deleteJournalEntry(tradeId);
+      
+      if (response.success) {
+        await loadTrades(); // Reload trades from server
+      }
+    } catch (error) {
+      console.error('Delete trade error:', error);
+      throw error;
+    }
   };
 
   const calculateStats = (): TradeStats => {
@@ -96,10 +154,13 @@ export function useTrades(userEmail?: string) {
 
   return {
     trades,
+    loading,
+    error,
     addTrade,
     updateTrade,
     deleteTrade,
     calculateStats,
-    getTradesByMonth
+    getTradesByMonth,
+    refetch: loadTrades
   };
 }
