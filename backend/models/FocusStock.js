@@ -55,7 +55,8 @@ const focusStockSchema = new mongoose.Schema({
   reason: {
     type: String,
     maxlength: [200, 'Reason cannot exceed 200 characters'],
-    trim: true
+    trim: true,
+    default: ''
   },
   tradeTaken: {
     type: Boolean,
@@ -67,7 +68,8 @@ const focusStockSchema = new mongoose.Schema({
   notes: {
     type: String,
     maxlength: [500, 'Notes cannot exceed 500 characters'],
-    trim: true
+    trim: true,
+    default: ''
   },
   // Calculated fields
   potentialReturn: {

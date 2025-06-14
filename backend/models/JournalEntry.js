@@ -54,7 +54,8 @@ const journalEntrySchema = new mongoose.Schema({
   remarks: {
     type: String,
     maxlength: [500, 'Remarks cannot exceed 500 characters'],
-    trim: true
+    trim: true,
+    default: ''
   },
   isTeamTrade: {
     type: Boolean,

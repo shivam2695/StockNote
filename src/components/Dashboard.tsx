@@ -16,7 +16,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Eye,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -41,24 +42,33 @@ export default function Dashboard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
   const [selectedPeriod, setSelectedPeriod] = useState('7d');
+  const [error, setError] = useState<string>('');
 
   const handleEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
     setIsModalOpen(true);
   };
 
-  const handleSaveTrade = (tradeData: Omit<Trade, 'id'>) => {
-    if (editingTrade) {
-      onEditTrade(editingTrade.id, tradeData);
-    } else {
-      onAddTrade(tradeData);
+  const handleSaveTrade = async (tradeData: Omit<Trade, 'id'>) => {
+    try {
+      setError('');
+      if (editingTrade) {
+        await onEditTrade(editingTrade.id, tradeData);
+      } else {
+        await onAddTrade(tradeData);
+      }
+      setEditingTrade(undefined);
+      setIsModalOpen(false);
+    } catch (error: any) {
+      console.error('Save trade error:', error);
+      setError(error.message || 'Failed to save trade');
     }
-    setEditingTrade(undefined);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTrade(undefined);
+    setError('');
   };
 
   const formatCurrency = (amount: number) => {
@@ -145,6 +155,25 @@ export default function Dashboard({
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <div>
+                <p className="text-red-800 text-sm font-medium">Error</p>
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+              <button
+                onClick={() => setError('')}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <StatsCard

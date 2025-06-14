@@ -167,7 +167,9 @@ router.post('/', auth, validateFocusStock, async (req, res) => {
     const stockData = {
       ...req.body,
       user: req.user._id,
-      stockName: req.body.stockName.toUpperCase()
+      stockName: req.body.stockName.toUpperCase(),
+      reason: req.body.reason || '',
+      notes: req.body.notes || ''
     };
     
     const stock = new FocusStock(stockData);
@@ -180,6 +182,17 @@ router.post('/', auth, validateFocusStock, async (req, res) => {
     });
   } catch (error) {
     console.error('Create focus stock error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error creating focus stock'
@@ -203,7 +216,9 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
 
     const updateData = {
       ...req.body,
-      stockName: req.body.stockName.toUpperCase()
+      stockName: req.body.stockName.toUpperCase(),
+      reason: req.body.reason || '',
+      notes: req.body.notes || ''
     };
     
     const stock = await FocusStock.findOneAndUpdate(
@@ -226,6 +241,17 @@ router.put('/:id', auth, validateFocusStock, async (req, res) => {
     });
   } catch (error) {
     console.error('Update focus stock error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Error updating focus stock'

@@ -200,7 +200,8 @@ router.post('/', auth, validateJournalEntry, async (req, res) => {
       user: req.user._id,
       stockName: req.body.stockName.toUpperCase(),
       quantity: req.body.quantity || 1,
-      isTeamTrade: req.body.isTeamTrade || false
+      isTeamTrade: req.body.isTeamTrade || false,
+      remarks: req.body.remarks || ''
     };
     
     console.log('Final entry data:', entryData);
@@ -269,7 +270,8 @@ router.put('/:id', auth, validateJournalEntry, async (req, res) => {
       ...req.body,
       stockName: req.body.stockName.toUpperCase(),
       quantity: req.body.quantity || 1,
-      isTeamTrade: req.body.isTeamTrade || false
+      isTeamTrade: req.body.isTeamTrade || false,
+      remarks: req.body.remarks || ''
     };
     
     const entry = await JournalEntry.findOneAndUpdate(

@@ -49,7 +49,7 @@ export function useFocusStocks(userEmail?: string) {
     try {
       // Transform frontend FocusStock to API format
       const apiData = {
-        stockName: stockData.symbol,
+        stockName: stockData.symbol.toUpperCase().trim(),
         entryPrice: stockData.currentPrice, // Use current price as entry price
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95, // Default 5% stop loss
@@ -75,7 +75,7 @@ export function useFocusStocks(userEmail?: string) {
     try {
       // Transform frontend FocusStock to API format
       const apiData = {
-        stockName: stockData.symbol,
+        stockName: stockData.symbol.toUpperCase().trim(),
         entryPrice: stockData.currentPrice,
         targetPrice: stockData.targetPrice,
         stopLossPrice: stockData.currentPrice * 0.95,
