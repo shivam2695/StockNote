@@ -20,6 +20,28 @@ const generateToken = (userId) => {
   });
 };
 
+// @route   GET /api/auth/status
+// @desc    Check authentication status
+// @access  Private
+router.get('/status', auth, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      status: 'ok',
+      message: 'User is authenticated',
+      data: {
+        user: req.user.profile
+      }
+    });
+  } catch (error) {
+    console.error('Auth status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking authentication status'
+    });
+  }
+});
+
 // @route   POST /api/auth/signup
 // @desc    Register a new user
 // @access  Public
