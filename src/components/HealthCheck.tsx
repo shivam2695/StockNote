@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, RefreshCw, Shield, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, RefreshCw, Shield, AlertTriangle, ExternalLink } from 'lucide-react';
 import { apiService } from '../services/api';
 
 export default function HealthCheck() {
@@ -8,6 +8,7 @@ export default function HealthCheck() {
   const [authStatus, setAuthStatus] = useState<'unknown' | 'authenticated' | 'unauthenticated'>('unknown');
   const [error, setError] = useState<string>('');
   const [isVisible, setIsVisible] = useState(true);
+  const [backendUrl, setBackendUrl] = useState('');
 
   const checkHealth = async () => {
     try {
@@ -39,6 +40,10 @@ export default function HealthCheck() {
   };
 
   useEffect(() => {
+    // Set the backend URL for display
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://stocknote-backend.onrender.com/api';
+    setBackendUrl(apiUrl.replace('/api', ''));
+    
     checkHealth();
     checkAuthStatus();
     
@@ -142,17 +147,30 @@ export default function HealthCheck() {
                 <div className="text-xs text-red-600 bg-red-50 p-2 rounded border">
                   {error}
                 </div>
-                {(error.includes('Failed to fetch') || error.includes('HTML instead of JSON')) && (
+                {(error.includes('Failed to fetch') || error.includes('HTML instead of JSON') || error.includes('timed out')) && (
                   <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded border flex items-start space-x-2">
                     <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                     <div>
-                      <div className="font-medium">Possible causes:</div>
+                      <div className="font-medium">Possible solutions:</div>
                       <ul className="mt-1 space-y-1">
-                        <li>• Backend server is down</li>
-                        <li>• Incorrect API URL</li>
-                        <li>• CORS configuration issue</li>
-                        <li>• Server returning error page</li>
+                        <li>• Check if backend server is running</li>
+                        <li>• Verify API URL configuration</li>
+                        <li>• Check internet connection</li>
+                        <li>• Try refreshing the page</li>
                       </ul>
+                      {backendUrl && (
+                        <div className="mt-2">
+                          <a
+                            href={`${backendUrl}/health`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-1 text-blue-600 hover:text-blue-500 text-xs"
+                          >
+                            <span>Test backend directly</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -180,8 +198,23 @@ export default function HealthCheck() {
         </div>
 
         <div className="mt-3 pt-2 border-t border-gray-200">
-          <div className="text-xs text-gray-500">
-            API: {import.meta.env.VITE_API_URL || 'https://stocknote-backend.onrender.com/api'}
+          <div className="text-xs text-gray-500 space-y-1">
+            <div>API: {import.meta.env.VITE_API_URL || 'https://stocknote-backend.onrender.com/api'}</div>
+            <div>Domain: {window.location.hostname}</div>
+            {backendUrl && (
+              <div className="flex items-center space-x-1">
+                <span>Backend:</span>
+                <a
+                  href={backendUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-500 inline-flex items-center space-x-1"
+                >
+                  <span>{backendUrl.replace('https://', '')}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

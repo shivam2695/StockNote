@@ -69,12 +69,25 @@ class ApiService {
         headers: {
           ...headers,
           ...options.headers
-        }
+        },
+        // Add timeout for better error handling
+        signal: AbortSignal.timeout(30000) // 30 second timeout
       });
       
       return await this.handleResponse(response);
     } catch (error) {
       console.error(`💥 API Request failed: ${url}`, error);
+      
+      // Handle network errors more gracefully
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your internet connection.');
+        }
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to server. Please check your internet connection or try again later.');
+        }
+      }
+      
       throw error;
     }
   }
@@ -560,10 +573,23 @@ class ApiService {
     return this.makeRequest('/users/dashboard');
   }
 
-  // Health Check
+  // Health Check - Updated with better error handling
   async healthCheck() {
     try {
-      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
+      // Try the health endpoint first
+      const healthUrl = `${API_BASE_URL.replace('/api', '')}/health`;
+      console.log('Checking health at:', healthUrl);
+      
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        // Add timeout
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+      
       const contentType = response.headers.get('content-type');
       
       // Check if response is HTML (likely an error page)
@@ -571,9 +597,24 @@ class ApiService {
         throw new Error('Backend returned HTML instead of JSON. Server may be down or misconfigured.');
       }
       
+      if (!response.ok) {
+        throw new Error(`Health check failed: ${response.status} ${response.statusText}`);
+      }
+      
       return await response.json();
     } catch (error) {
       console.error('Health check failed:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Health check timed out. Backend server may be slow or down.');
+        }
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error('Unable to connect to backend server. Please check if the server is running.');
+        }
+      }
+      
       throw error;
     }
   }
