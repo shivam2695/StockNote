@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, TrendingUp, Loader2, Globe } from 'lucide-react';
-import { marketService, SearchResult } from '../services/marketService';
+
+interface SearchResult {
+  symbol: string;
+  description: string;
+  displayName: string;
+  type: string;
+  exchange?: string;
+}
 
 interface StockSearchInputProps {
   value: string;
@@ -44,36 +51,12 @@ export default function StockSearchInput({
     };
   }, []);
 
-  // Search for symbols
-  const searchSymbols = async (query: string) => {
-    if (query.length < 2) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const results = await marketService.searchSymbols(query);
-      setSearchResults(results);
-      setShowDropdown(results.length > 0);
-      setShowSuggestions(false);
-      setSelectedIndex(-1);
-    } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
-      setShowDropdown(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Show popular suggestions
-  const showPopularSuggestions = () => {
-    const popularUS = marketService.getPopularUSStocks().slice(0, 5);
-    const popularIndian = marketService.getPopularIndianStocks().slice(0, 5);
+  // Mock search function for popular stocks
+  const getPopularStocks = (): SearchResult[] => {
+    const popularUS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'];
+    const popularIndian = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'ICICIBANK.NS'];
     
-    const suggestions: SearchResult[] = [
+    return [
       ...popularUS.map(symbol => ({
         symbol,
         description: `${symbol} - US Stock`,
@@ -89,7 +72,44 @@ export default function StockSearchInput({
         exchange: 'NSE'
       }))
     ];
+  };
+
+  // Mock search for symbols
+  const searchSymbols = async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
     
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    try {
+      const allStocks = getPopularStocks();
+      const filtered = allStocks.filter(stock => 
+        stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
+        stock.description.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      setSearchResults(filtered);
+      setShowDropdown(filtered.length > 0);
+      setShowSuggestions(false);
+      setSelectedIndex(-1);
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+      setShowDropdown(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Show popular suggestions
+  const showPopularSuggestions = () => {
+    const suggestions = getPopularStocks().slice(0, 10);
     setSearchResults(suggestions);
     setShowSuggestions(true);
     setShowDropdown(true);

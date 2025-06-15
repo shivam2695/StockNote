@@ -1,5 +1,3 @@
-import { apiService } from './api';
-
 export interface Quote {
   symbol: string;
   originalSymbol?: string;
@@ -27,6 +25,27 @@ class MarketService {
   private cache = new Map<string, { data: Quote; timestamp: number }>();
   private readonly CACHE_DURATION = 60000; // 1 minute cache
 
+  // Mock data for demonstration
+  private generateMockQuote(symbol: string): Quote {
+    const basePrice = Math.random() * 200 + 50;
+    const change = (Math.random() - 0.5) * 10;
+    const changePercent = (change / basePrice) * 100;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: basePrice,
+      change: change,
+      changePercent: changePercent,
+      high: basePrice + Math.random() * 5,
+      low: basePrice - Math.random() * 5,
+      open: basePrice + (Math.random() - 0.5) * 3,
+      previousClose: basePrice - change,
+      currency: symbol.includes('.NS') ? 'INR' : 'USD',
+      name: `${symbol} Company`,
+      timestamp: Date.now()
+    };
+  }
+
   async getQuote(symbol: string): Promise<Quote | null> {
     try {
       // Check cache first
@@ -35,19 +54,19 @@ class MarketService {
         return cached.data;
       }
 
-      const response = await apiService.makeRequest(`/market/quote/${symbol.toUpperCase()}`);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      if (response.success && response.data) {
-        // Cache the result
-        this.cache.set(symbol.toUpperCase(), {
-          data: response.data,
-          timestamp: Date.now()
-        });
-        
-        return response.data;
-      }
+      // Generate mock data
+      const quote = this.generateMockQuote(symbol);
       
-      return null;
+      // Cache the result
+      this.cache.set(symbol.toUpperCase(), {
+        data: quote,
+        timestamp: Date.now()
+      });
+      
+      return quote;
     } catch (error) {
       console.error(`Failed to fetch quote for ${symbol}:`, error);
       return null;
@@ -56,41 +75,9 @@ class MarketService {
 
   async getMultipleQuotes(symbols: string[]): Promise<Quote[]> {
     try {
-      const uncachedSymbols: string[] = [];
-      const results: Quote[] = [];
-
-      // Check cache for each symbol
-      symbols.forEach(symbol => {
-        const cached = this.cache.get(symbol.toUpperCase());
-        if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-          results.push(cached.data);
-        } else {
-          uncachedSymbols.push(symbol);
-        }
-      });
-
-      // Fetch uncached symbols
-      if (uncachedSymbols.length > 0) {
-        const response = await apiService.makeRequest('/market/quotes', {
-          method: 'POST',
-          body: JSON.stringify({ symbols: uncachedSymbols })
-        });
-
-        if (response.success && response.data) {
-          response.data.forEach((quote: Quote) => {
-            if (quote && quote.currentPrice !== null && quote.currentPrice !== undefined) {
-              // Cache successful results
-              this.cache.set(quote.symbol, {
-                data: quote,
-                timestamp: Date.now()
-              });
-              results.push(quote);
-            }
-          });
-        }
-      }
-
-      return results;
+      const promises = symbols.map(symbol => this.getQuote(symbol));
+      const results = await Promise.all(promises);
+      return results.filter(quote => quote !== null) as Quote[];
     } catch (error) {
       console.error('Failed to fetch multiple quotes:', error);
       return [];
@@ -103,13 +90,31 @@ class MarketService {
         return [];
       }
 
-      const response = await apiService.makeRequest(`/market/search/${encodeURIComponent(query)}`);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      if (response.success && response.data) {
-        return response.data;
-      }
+      // Mock search results
+      const allStocks = [
+        ...this.getPopularUSStocks().map(symbol => ({
+          symbol,
+          description: `${symbol} - US Stock`,
+          displayName: `${symbol} (US)`,
+          type: 'US Equity',
+          exchange: 'NASDAQ/NYSE'
+        })),
+        ...this.getPopularIndianStocks().map(symbol => ({
+          symbol,
+          description: `${symbol.replace('.NS', '')} - Indian Stock`,
+          displayName: `${symbol.replace('.NS', '')} (NSE)`,
+          type: 'Indian Equity',
+          exchange: 'NSE'
+        }))
+      ];
       
-      return [];
+      return allStocks.filter(stock => 
+        stock.symbol.toLowerCase().includes(query.toLowerCase()) ||
+        stock.description.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 10);
     } catch (error) {
       console.error(`Failed to search symbols for ${query}:`, error);
       return [];

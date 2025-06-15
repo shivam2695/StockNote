@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
-import { marketService, Quote } from '../services/marketService';
+
+interface Quote {
+  symbol: string;
+  currentPrice: number;
+  change: number;
+  changePercent: number;
+  currency?: string;
+  timestamp: number;
+}
 
 interface CMPDisplayProps {
   symbol: string;
@@ -22,6 +30,22 @@ export default function CMPDisplay({
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Mock price data for demonstration
+  const getMockQuote = (symbol: string): Quote => {
+    const basePrice = Math.random() * 200 + 50; // Random price between 50-250
+    const change = (Math.random() - 0.5) * 10; // Random change between -5 to +5
+    const changePercent = (change / basePrice) * 100;
+    
+    return {
+      symbol: symbol.toUpperCase(),
+      currentPrice: basePrice,
+      change: change,
+      changePercent: changePercent,
+      currency: symbol.includes('.NS') ? 'INR' : 'USD',
+      timestamp: Date.now()
+    };
+  };
+
   const fetchQuote = async () => {
     if (!symbol || symbol.trim().length === 0) return;
 
@@ -29,15 +53,14 @@ export default function CMPDisplay({
     setError(null);
 
     try {
-      const data = await marketService.getQuote(symbol.trim());
-      if (data) {
-        setQuote(data);
-        setLastUpdated(new Date());
-        setError(null);
-      } else {
-        setError('No data');
-        setQuote(null);
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Generate mock data
+      const data = getMockQuote(symbol);
+      setQuote(data);
+      setLastUpdated(new Date());
+      setError(null);
     } catch (err) {
       setError('Failed to fetch');
       setQuote(null);
@@ -56,6 +79,17 @@ export default function CMPDisplay({
       return () => clearInterval(interval);
     }
   }, [symbol, autoRefresh, refreshInterval]);
+
+  const formatPrice = (price: number, currency?: string): string => {
+    const isINR = currency === 'INR' || symbol.includes('.NS');
+    
+    return new Intl.NumberFormat(isINR ? 'en-IN' : 'en-US', {
+      style: 'currency',
+      currency: isINR ? 'INR' : 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(price);
+  };
 
   const getChangeColor = (change: number) => {
     if (change > 0) return 'text-green-600';
@@ -90,7 +124,7 @@ export default function CMPDisplay({
     <div className={`flex flex-col ${className}`}>
       <div className="flex items-center space-x-1">
         <span className="text-sm font-medium text-blue-600">
-          {marketService.formatPrice(quote.currentPrice, quote.symbol)}
+          {formatPrice(quote.currentPrice, quote.currency)}
         </span>
         {loading && (
           <RefreshCw className="w-3 h-3 text-blue-400 animate-spin" />
