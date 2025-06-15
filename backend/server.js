@@ -31,10 +31,12 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration
+// CORS configuration - Updated to include stocknote.in domain
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
+        'https://stocknote.in',
+        'https://www.stocknote.in',
         'https://stocknote.netlify.app', 
         'https://your-custom-domain.com',
         process.env.FRONTEND_URL
@@ -42,13 +44,25 @@ const corsOptions = {
     : [
         'http://localhost:3000', 
         'http://localhost:5173',
+        'https://stocknote.in',
+        'https://www.stocknote.in',
+        'https://stocknote.netlify.app',
         process.env.FRONTEND_URL || 'http://localhost:5173'
       ].filter(Boolean),
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
 };
+
+// Log CORS configuration for debugging
+console.log('🌐 CORS Configuration:');
+console.log('- Environment:', process.env.NODE_ENV || 'development');
+console.log('- Allowed Origins:', corsOptions.origin);
+console.log('- Allowed Methods:', corsOptions.methods);
+console.log('- Credentials Enabled:', corsOptions.credentials);
+
 app.use(cors(corsOptions));
 
 // Logging
@@ -92,14 +106,22 @@ testEmailConfig().then(isValid => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint with enhanced CORS debugging
 app.get('/health', (req, res) => {
+  const origin = req.get('Origin');
+  console.log('🏥 Health check request from origin:', origin);
+  
   res.status(200).json({
     status: 'OK',
     message: 'StockNote Backend is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     version: '2.0.0',
+    cors: {
+      requestOrigin: origin,
+      allowedOrigins: corsOptions.origin,
+      corsEnabled: true
+    },
     email: {
       configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -119,17 +141,22 @@ app.use('/api/users', userRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
+  const origin = req.get('Origin');
+  console.log('🔍 404 request from origin:', origin, 'for path:', req.originalUrl);
+  
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
     path: req.originalUrl,
-    method: req.method
+    method: req.method,
+    origin: origin
   });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  const origin = req.get('Origin');
+  console.error('💥 Error from origin:', origin, 'Error:', err);
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {
@@ -209,6 +236,7 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
+  console.log(`🌐 CORS enabled for origins:`, corsOptions.origin);
 });
 
 module.exports = app;
