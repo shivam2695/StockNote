@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, TrendingUp, Loader2 } from 'lucide-react';
+import { Search, TrendingUp, Loader2, Globe } from 'lucide-react';
 import { marketService, SearchResult } from '../services/marketService';
 
 interface StockSearchInputProps {
@@ -23,6 +23,7 @@ export default function StockSearchInput({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +33,7 @@ export default function StockSearchInput({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
+        setShowSuggestions(false);
         setSelectedIndex(-1);
       }
     };
@@ -55,6 +57,7 @@ export default function StockSearchInput({
       const results = await marketService.searchSymbols(query);
       setSearchResults(results);
       setShowDropdown(results.length > 0);
+      setShowSuggestions(false);
       setSelectedIndex(-1);
     } catch (error) {
       console.error('Search error:', error);
@@ -65,6 +68,34 @@ export default function StockSearchInput({
     }
   };
 
+  // Show popular suggestions
+  const showPopularSuggestions = () => {
+    const popularUS = marketService.getPopularUSStocks().slice(0, 5);
+    const popularIndian = marketService.getPopularIndianStocks().slice(0, 5);
+    
+    const suggestions: SearchResult[] = [
+      ...popularUS.map(symbol => ({
+        symbol,
+        description: `${symbol} - US Stock`,
+        displayName: `${symbol} (US)`,
+        type: 'US Equity',
+        exchange: 'NASDAQ/NYSE'
+      })),
+      ...popularIndian.map(symbol => ({
+        symbol,
+        description: `${symbol.replace('.NS', '')} - Indian Stock`,
+        displayName: `${symbol.replace('.NS', '')} (NSE)`,
+        type: 'Indian Equity',
+        exchange: 'NSE'
+      }))
+    ];
+    
+    setSearchResults(suggestions);
+    setShowSuggestions(true);
+    setShowDropdown(true);
+    setSelectedIndex(-1);
+  };
+
   // Handle input change with debouncing
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -73,6 +104,13 @@ export default function StockSearchInput({
     // Clear previous timeout
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (newValue.trim().length === 0) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      setShowSuggestions(false);
+      return;
     }
 
     // Set new timeout for search
@@ -106,6 +144,7 @@ export default function StockSearchInput({
         break;
       case 'Escape':
         setShowDropdown(false);
+        setShowSuggestions(false);
         setSelectedIndex(-1);
         inputRef.current?.blur();
         break;
@@ -116,9 +155,19 @@ export default function StockSearchInput({
   const handleSelect = (result: SearchResult) => {
     onChange(result.symbol);
     setShowDropdown(false);
+    setShowSuggestions(false);
     setSelectedIndex(-1);
     if (onSelect) {
       onSelect(result);
+    }
+  };
+
+  // Handle focus
+  const handleFocus = () => {
+    if (value.trim().length === 0) {
+      showPopularSuggestions();
+    } else if (searchResults.length > 0) {
+      setShowDropdown(true);
     }
   };
 
@@ -132,11 +181,7 @@ export default function StockSearchInput({
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
-            if (searchResults.length > 0) {
-              setShowDropdown(true);
-            }
-          }}
+          onFocus={handleFocus}
           placeholder={placeholder}
           className={`w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${className}`}
           disabled={disabled}
@@ -149,9 +194,18 @@ export default function StockSearchInput({
       {/* Search Results Dropdown */}
       {showDropdown && searchResults.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {showSuggestions && (
+            <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center space-x-2 text-xs text-gray-600">
+                <Globe className="w-3 h-3" />
+                <span>Popular Stocks</span>
+              </div>
+            </div>
+          )}
+          
           {searchResults.map((result, index) => (
             <button
-              key={result.symbol}
+              key={`${result.symbol}-${index}`}
               type="button"
               onClick={() => handleSelect(result)}
               className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
@@ -168,6 +222,11 @@ export default function StockSearchInput({
                   <div className="flex items-center space-x-2">
                     <span className="font-semibold text-gray-900">{result.symbol}</span>
                     <TrendingUp className="w-3 h-3 text-green-500" />
+                    {result.exchange && (
+                      <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                        {result.exchange}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-600 truncate">{result.description}</p>
                 </div>

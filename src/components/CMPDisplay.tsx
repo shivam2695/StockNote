@@ -33,11 +33,14 @@ export default function CMPDisplay({
       if (data) {
         setQuote(data);
         setLastUpdated(new Date());
+        setError(null);
       } else {
-        setError('No data available');
+        setError('No data');
+        setQuote(null);
       }
     } catch (err) {
       setError('Failed to fetch');
+      setQuote(null);
       console.error(`CMP fetch error for ${symbol}:`, err);
     } finally {
       setLoading(false);
@@ -54,15 +57,6 @@ export default function CMPDisplay({
     }
   }, [symbol, autoRefresh, refreshInterval]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(price);
-  };
-
   const getChangeColor = (change: number) => {
     if (change > 0) return 'text-green-600';
     if (change < 0) return 'text-red-600';
@@ -78,8 +72,8 @@ export default function CMPDisplay({
   if (loading && !quote) {
     return (
       <div className={`flex items-center space-x-1 ${className}`}>
-        <RefreshCw className="w-3 h-3 text-gray-400 animate-spin" />
-        <span className="text-sm text-gray-500">Loading...</span>
+        <RefreshCw className="w-3 h-3 text-blue-400 animate-spin" />
+        <span className="text-sm text-blue-500">Loading...</span>
       </div>
     );
   }
@@ -95,11 +89,11 @@ export default function CMPDisplay({
   return (
     <div className={`flex flex-col ${className}`}>
       <div className="flex items-center space-x-1">
-        <span className="text-sm font-medium text-gray-700">
-          {formatPrice(quote.currentPrice)}
+        <span className="text-sm font-medium text-blue-600">
+          {marketService.formatPrice(quote.currentPrice, quote.symbol)}
         </span>
         {loading && (
-          <RefreshCw className="w-3 h-3 text-gray-400 animate-spin" />
+          <RefreshCw className="w-3 h-3 text-blue-400 animate-spin" />
         )}
       </div>
       

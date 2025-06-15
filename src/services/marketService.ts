@@ -2,6 +2,7 @@ import { apiService } from './api';
 
 export interface Quote {
   symbol: string;
+  originalSymbol?: string;
   currentPrice: number;
   change: number;
   changePercent: number;
@@ -9,6 +10,8 @@ export interface Quote {
   low: number;
   open: number;
   previousClose: number;
+  currency?: string;
+  name?: string;
   timestamp: number;
 }
 
@@ -17,6 +20,7 @@ export interface SearchResult {
   description: string;
   displayName: string;
   type: string;
+  exchange?: string;
 }
 
 class MarketService {
@@ -74,7 +78,7 @@ class MarketService {
 
         if (response.success && response.data) {
           response.data.forEach((quote: Quote) => {
-            if (quote.currentPrice !== null) {
+            if (quote && quote.currentPrice !== null && quote.currentPrice !== undefined) {
               // Cache successful results
               this.cache.set(quote.symbol, {
                 data: quote,
@@ -112,14 +116,22 @@ class MarketService {
     }
   }
 
+  // Check if symbol is likely Indian stock
+  isIndianStock(symbol: string): boolean {
+    const cleanSymbol = symbol.toUpperCase().trim();
+    return cleanSymbol.includes('.NS') || cleanSymbol.includes('.BO');
+  }
+
   clearCache() {
     this.cache.clear();
   }
 
-  formatPrice(price: number): string {
-    return new Intl.NumberFormat('en-US', {
+  formatPrice(price: number, symbol?: string): string {
+    const isIndian = symbol ? this.isIndianStock(symbol) : false;
+    
+    return new Intl.NumberFormat(isIndian ? 'en-IN' : 'en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: isIndian ? 'INR' : 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(price);
@@ -128,6 +140,25 @@ class MarketService {
   formatChange(change: number, changePercent: number): string {
     const sign = change >= 0 ? '+' : '';
     return `${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)`;
+  }
+
+  // Get suggested Indian stock symbols for autocomplete
+  getPopularIndianStocks(): string[] {
+    return [
+      'RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'ICICIBANK.NS',
+      'HINDUNILVR.NS', 'ITC.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS',
+      'LT.NS', 'ASIANPAINT.NS', 'AXISBANK.NS', 'MARUTI.NS', 'TITAN.NS',
+      'NESTLEIND.NS', 'ULTRACEMCO.NS', 'BAJFINANCE.NS', 'HCLTECH.NS', 'WIPRO.NS'
+    ];
+  }
+
+  // Get suggested US stock symbols for autocomplete
+  getPopularUSStocks(): string[] {
+    return [
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX',
+      'ADBE', 'CRM', 'ORCL', 'INTC', 'AMD', 'PYPL', 'UBER', 'ZOOM',
+      'SHOP', 'SQ', 'ROKU', 'TWTR'
+    ];
   }
 }
 

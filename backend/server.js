@@ -107,12 +107,8 @@ testEmailConfig().then(isValid => {
   }
 });
 
-// Test Finnhub API configuration
-if (process.env.FINNHUB_API_KEY) {
-  console.log('✅ Finnhub API key configured');
-} else {
-  console.log('⚠️  Finnhub API key not found in environment variables');
-}
+// Test Yahoo Finance service
+console.log('📊 Yahoo Finance service loaded');
 
 // Health check endpoint with enhanced CORS debugging
 app.get('/health', (req, res) => {
@@ -135,8 +131,9 @@ app.get('/health', (req, res) => {
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: process.env.EMAIL_PORT || 587
     },
-    finnhub: {
-      configured: !!process.env.FINNHUB_API_KEY
+    marketData: {
+      service: 'Yahoo Finance',
+      status: 'available'
     }
   });
 });
