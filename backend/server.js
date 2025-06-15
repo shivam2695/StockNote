@@ -15,7 +15,6 @@ const bookRoutes = require('./routes/books');
 const teamRoutes = require('./routes/teams');
 const teamTradeRoutes = require('./routes/teamTrades');
 const userRoutes = require('./routes/users');
-const marketRoutes = require('./routes/market');
 
 const app = express();
 
@@ -32,12 +31,10 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS configuration - Updated to include stocknote.in domain
+// CORS configuration
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://stocknote.in',
-        'https://www.stocknote.in',
         'https://stocknote.netlify.app', 
         'https://your-custom-domain.com',
         process.env.FRONTEND_URL
@@ -45,25 +42,13 @@ const corsOptions = {
     : [
         'http://localhost:3000', 
         'http://localhost:5173',
-        'https://stocknote.in',
-        'https://www.stocknote.in',
-        'https://stocknote.netlify.app',
         process.env.FRONTEND_URL || 'http://localhost:5173'
       ].filter(Boolean),
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
-
-// Log CORS configuration for debugging
-console.log('🌐 CORS Configuration:');
-console.log('- Environment:', process.env.NODE_ENV || 'development');
-console.log('- Allowed Origins:', corsOptions.origin);
-console.log('- Allowed Methods:', corsOptions.methods);
-console.log('- Credentials Enabled:', corsOptions.credentials);
-
 app.use(cors(corsOptions));
 
 // Logging
@@ -77,106 +62,20 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database connection with proper standalone configuration
+// Database connection
 const connectDB = async () => {
   try {
-    console.log('🔗 Attempting MongoDB connection...');
-    console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
-    
-    // Determine MongoDB URI
-    const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/stocknote';
-    console.log('🔗 Using MongoDB URI pattern:', mongoURI.replace(/\/\/.*@/, '//***:***@'));
-    
-    // Connection options for standalone MongoDB (no replica set)
-    const connectionOptions = {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stocknote', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      // Remove replica set specific options
-      serverSelectionTimeoutMS: 10000, // 10 seconds
-      socketTimeoutMS: 45000, // 45 seconds
-      family: 4, // Use IPv4, skip trying IPv6
-      maxPoolSize: 10, // Maintain up to 10 socket connections
-      minPoolSize: 5, // Maintain a minimum of 5 socket connections
-      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-      bufferMaxEntries: 0, // Disable mongoose buffering
-      bufferCommands: false, // Disable mongoose buffering
-      // Explicitly disable replica set options
-      replicaSet: undefined,
-      readPreference: 'primary'
-    };
-
-    console.log('⚙️ Connection options:', {
-      serverSelectionTimeoutMS: connectionOptions.serverSelectionTimeoutMS,
-      socketTimeoutMS: connectionOptions.socketTimeoutMS,
-      maxPoolSize: connectionOptions.maxPoolSize,
-      replicaSet: connectionOptions.replicaSet
     });
-
-    const conn = await mongoose.connect(mongoURI, connectionOptions);
-    
-    console.log('✅ MongoDB Connected Successfully!');
-    console.log('📊 Connection Details:');
-    console.log('- Host:', conn.connection.host);
-    console.log('- Port:', conn.connection.port);
-    console.log('- Database:', conn.connection.name);
-    console.log('- Ready State:', conn.connection.readyState);
-    console.log('- Connection ID:', conn.connection.id);
-    
-    // Log connection state details
-    const adminDb = conn.connection.db.admin();
-    try {
-      const serverStatus = await adminDb.serverStatus();
-      console.log('🔍 Server Info:');
-      console.log('- Version:', serverStatus.version);
-      console.log('- Uptime:', Math.floor(serverStatus.uptime / 60), 'minutes');
-      console.log('- Connections:', serverStatus.connections);
-    } catch (statusError) {
-      console.log('ℹ️ Could not retrieve server status (normal for some MongoDB setups)');
-    }
-
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error('❌ MongoDB Connection Error:');
-    console.error('- Error Name:', error.name);
-    console.error('- Error Message:', error.message);
-    
-    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-      console.error('🔧 Connection Issue: Cannot reach MongoDB server');
-      console.error('   - Check if MongoDB is running');
-      console.error('   - Verify the connection string');
-      console.error('   - Check network connectivity');
-    } else if (error.message.includes('Authentication failed')) {
-      console.error('🔐 Authentication Issue: Invalid credentials');
-      console.error('   - Check username and password in connection string');
-      console.error('   - Verify database user permissions');
-    } else if (error.message.includes('replica set')) {
-      console.error('🔄 Replica Set Issue: Using standalone connection');
-      console.error('   - Remove replicaSet parameter from connection string');
-      console.error('   - Use standalone MongoDB URI format');
-    }
-    
-    console.error('💡 Suggested MongoDB URI formats:');
-    console.error('   - Local: mongodb://localhost:27017/stocknote');
-    console.error('   - Atlas: mongodb+srv://username:password@cluster.mongodb.net/stocknote');
-    console.error('   - Remote: mongodb://username:password@host:port/stocknote');
-    
+    console.error('❌ MongoDB connection error:', error);
     process.exit(1);
   }
 };
 
-// Handle MongoDB connection events
-mongoose.connection.on('connected', () => {
-  console.log('🟢 Mongoose connected to MongoDB');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('🔴 Mongoose connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('🟡 Mongoose disconnected from MongoDB');
-});
-
-// Connect to database
 connectDB();
 
 // Test email configuration on startup
@@ -193,39 +92,18 @@ testEmailConfig().then(isValid => {
   }
 });
 
-// Test Yahoo Finance service
-console.log('📊 Yahoo Finance service loaded');
-
-// Health check endpoint with enhanced CORS debugging
+// Health check endpoint
 app.get('/health', (req, res) => {
-  const origin = req.get('Origin');
-  console.log('🏥 Health check request from origin:', origin);
-  
   res.status(200).json({
     status: 'OK',
     message: 'StockNote Backend is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     version: '2.0.0',
-    cors: {
-      requestOrigin: origin,
-      allowedOrigins: corsOptions.origin,
-      corsEnabled: true
-    },
-    database: {
-      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-      host: mongoose.connection.host,
-      name: mongoose.connection.name,
-      readyState: mongoose.connection.readyState
-    },
     email: {
       configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: process.env.EMAIL_PORT || 587
-    },
-    marketData: {
-      service: 'Yahoo Finance',
-      status: 'available'
     }
   });
 });
@@ -238,26 +116,20 @@ app.use('/api/books', bookRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/team-trades', teamTradeRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/market', marketRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
-  const origin = req.get('Origin');
-  console.log('🔍 404 request from origin:', origin, 'for path:', req.originalUrl);
-  
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
     path: req.originalUrl,
-    method: req.method,
-    origin: origin
+    method: req.method
   });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
-  const origin = req.get('Origin');
-  console.error('💥 Error from origin:', origin, 'Error:', err);
+  console.error('Error:', err);
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {
@@ -337,7 +209,6 @@ app.listen(PORT, () => {
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`📖 API Documentation: http://localhost:${PORT}/api`);
-  console.log(`🌐 CORS enabled for origins:`, corsOptions.origin);
 });
 
 module.exports = app;

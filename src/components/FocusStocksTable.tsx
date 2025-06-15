@@ -3,7 +3,6 @@ import { FocusStock } from '../types/FocusStock';
 import { Target, TrendingUp, CheckCircle, Circle, Edit, Trash2, Calendar } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import FocusStockTags, { FocusStockTag } from './FocusStockTags';
-import CMPDisplay from './CMPDisplay';
 
 interface FocusStocksTableProps {
   stocks: FocusStock[];
@@ -24,11 +23,11 @@ export default function FocusStocksTable({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
   };
 
@@ -48,10 +47,6 @@ export default function FocusStocksTable({
     if (returnPercentage > 0) return 'text-green-600';
     if (returnPercentage < 0) return 'text-red-600';
     return 'text-gray-600';
-  };
-
-  const getStockLogo = (symbol: string) => {
-    return symbol.charAt(0).toUpperCase();
   };
 
   const handleTradeTakenToggle = (stock: FocusStock) => {
@@ -97,7 +92,6 @@ export default function FocusStocksTable({
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Symbol</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Current Price</th>
-                <th className="text-left py-4 px-6 font-semibold text-gray-700">CMP</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Target Price</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Potential Return</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Reason</th>
@@ -140,16 +134,11 @@ export default function FocusStocksTable({
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">{getStockLogo(stock.symbol)}</span>
-                        </div>
+                        <Target className="w-4 h-4 text-blue-500" />
                         <span className="font-semibold text-gray-900">{stock.symbol}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-gray-900">{formatCurrency(stock.currentPrice)}</td>
-                    <td className="py-4 px-6">
-                      <CMPDisplay symbol={stock.symbol} />
-                    </td>
                     <td className="py-4 px-6 text-gray-900">{formatCurrency(stock.targetPrice)}</td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-1">

@@ -1,6 +1,6 @@
 # StockNote Backend API v2.0
 
-A comprehensive REST API for the StockNote Trading Journal application built with Node.js, Express.js, and MongoDB. This backend supports individual trading journals, team trading, focus stocks management, and book recommendations with real-time market data integration.
+A comprehensive REST API for the StockNote Trading Journal application built with Node.js, Express.js, and MongoDB. This backend supports individual trading journals, team trading, focus stocks management, and book recommendations.
 
 ## 🚀 Features
 
@@ -44,12 +44,6 @@ A comprehensive REST API for the StockNote Trading Journal application built wit
 - Team performance tracking
 - Strategy documentation
 
-#### 7. **Market Data (NEW)**
-- Real-time stock quotes via Yahoo Finance
-- Stock symbol search and autocomplete
-- Support for US and Indian markets
-- Current Market Price (CMP) integration
-
 ### 🔐 Security Features
 - JWT-based authentication
 - Password hashing with bcrypt
@@ -66,14 +60,6 @@ A comprehensive REST API for the StockNote Trading Journal application built wit
 - P&L calculations
 - Win rate analysis
 - Risk-reward ratios
-
-### 📈 Market Data Integration
-- **Yahoo Finance Integration**: Real-time market data without API keys
-- **Multi-Market Support**: US stocks (NASDAQ, NYSE) and Indian stocks (NSE, BSE)
-- **Smart Symbol Formatting**: Automatic .NS suffix for Indian stocks
-- **Search & Autocomplete**: Intelligent stock symbol search
-- **Caching**: 1-minute cache for optimal performance
-- **Error Handling**: Graceful fallbacks for unavailable data
 
 ## 📋 Prerequisites
 
@@ -128,9 +114,6 @@ EMAIL_PASS=your-16-character-app-password
 NODE_ENV=development
 PORT=5000
 FRONTEND_URL=http://localhost:5173
-
-# Market Data - Yahoo Finance (No API key required)
-# Yahoo Finance integration is automatic and requires no additional configuration
 ```
 
 5. **Start the server**
@@ -180,65 +163,6 @@ If you see an error:
 
 Check your environment variables and Gmail app password.
 
-## 📈 Market Data Integration
-
-### Yahoo Finance Service
-
-The backend now includes comprehensive market data integration using Yahoo Finance:
-
-#### Features:
-- **Real-time Quotes**: Current price, change, volume, and more
-- **Multi-Market Support**: 
-  - US Stocks: AAPL, MSFT, GOOGL, etc.
-  - Indian Stocks: RELIANCE.NS, TCS.NS, INFY.NS, etc.
-- **Smart Symbol Detection**: Automatically adds .NS suffix for Indian stocks
-- **Search & Autocomplete**: Find stocks by name or symbol
-- **Caching**: 1-minute cache for optimal performance
-- **Error Handling**: Graceful fallbacks when data is unavailable
-
-#### Supported Markets:
-- **US Markets**: NASDAQ, NYSE
-- **Indian Markets**: NSE (National Stock Exchange), BSE (Bombay Stock Exchange)
-
-#### API Endpoints:
-
-```bash
-# Get single quote
-GET /api/market/quote/AAPL
-GET /api/market/quote/RELIANCE  # Automatically becomes RELIANCE.NS
-
-# Get multiple quotes
-POST /api/market/quotes
-Body: { "symbols": ["AAPL", "MSFT", "RELIANCE"] }
-
-# Search symbols
-GET /api/market/search/apple
-GET /api/market/search/reliance
-
-# Health check
-GET /api/market/health
-```
-
-#### Example Response:
-```json
-{
-  "success": true,
-  "data": {
-    "symbol": "AAPL",
-    "currentPrice": 150.25,
-    "change": 2.15,
-    "changePercent": 1.45,
-    "high": 152.00,
-    "low": 148.50,
-    "open": 149.00,
-    "previousClose": 148.10,
-    "currency": "USD",
-    "name": "Apple Inc.",
-    "timestamp": 1640995200000
-  }
-}
-```
-
 ## 📚 API Documentation
 
 ### Base URL
@@ -258,23 +182,6 @@ Content-Type: application/json
   "name": "John Doe",
   "email": "john@example.com",
   "password": "password123"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "User registered successfully. Please check your email for verification.",
-  "data": {
-    "user": {
-      "id": "user_id",
-      "name": "John Doe",
-      "email": "john@example.com",
-      "verified": false
-    },
-    "requiresEmailVerification": true
-  }
 }
 ```
 
@@ -300,28 +207,13 @@ Content-Type: application/json
 }
 ```
 
-### Market Data Endpoints
-
-#### Get Stock Quote
+#### 4. Resend Verification Email
 ```http
-GET /api/market/quote/AAPL
-Authorization: Bearer <token>
-```
-
-#### Search Stocks
-```http
-GET /api/market/search/apple
-Authorization: Bearer <token>
-```
-
-#### Get Multiple Quotes
-```http
-POST /api/market/quotes
-Authorization: Bearer <token>
+POST /api/auth/resend-verification
 Content-Type: application/json
 
 {
-  "symbols": ["AAPL", "MSFT", "RELIANCE"]
+  "email": "john@example.com"
 }
 ```
 
@@ -417,12 +309,6 @@ Content-Type: application/json
 1. **Secret**: Generate a strong JWT secret
 2. **Expiration**: Configure token expiration time
 
-### Market Data Configuration
-- **Yahoo Finance**: No API key required
-- **Automatic Setup**: Service initializes automatically
-- **Multi-Market**: Supports US and Indian markets
-- **Caching**: Built-in 1-minute cache for performance
-
 ## 🚀 Deployment
 
 ### Render Deployment
@@ -498,7 +384,6 @@ npm run test:watch
 - **Pagination**: Efficient data loading
 - **Aggregation Pipelines**: Complex analytics
 - **Connection Pooling**: MongoDB connection optimization
-- **Market Data Caching**: 1-minute cache for quotes
 - **Email Configuration Testing**: Startup validation
 
 ## 🤝 Contributing
@@ -521,11 +406,7 @@ For support or questions:
 
 ## 🔄 Version History
 
-- **v2.0.0**: Complete backend with market data integration
-  - Yahoo Finance integration for real-time market data
-  - Multi-market support (US and Indian stocks)
-  - Smart symbol formatting and search
-  - Enhanced CMP (Current Market Price) features
+- **v2.0.0**: Complete backend with email verification
   - Mandatory email verification before login
   - Fixed nodemailer configuration
   - Enhanced security and validation

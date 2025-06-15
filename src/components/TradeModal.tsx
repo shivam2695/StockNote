@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trade } from '../types/Trade';
 import { X, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
-import StockSearchInput from './StockSearchInput';
-import CMPDisplay from './CMPDisplay';
 
 interface TradeModalProps {
   isOpen: boolean;
@@ -26,7 +24,6 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCMP, setShowCMP] = useState(false);
 
   useEffect(() => {
     if (trade) {
@@ -41,7 +38,6 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         status: trade.status,
         notes: trade.notes || ''
       });
-      setShowCMP(true);
     } else {
       setFormData({
         symbol: '',
@@ -54,7 +50,6 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
         status: 'ACTIVE',
         notes: ''
       });
-      setShowCMP(false);
     }
     setErrors({});
   }, [trade, isOpen]);
@@ -252,11 +247,6 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
     }
   };
 
-  const handleSymbolChange = (symbol: string) => {
-    handleInputChange('symbol', symbol);
-    setShowCMP(symbol.trim().length > 0);
-  };
-
   const handleStatusChange = (newStatus: 'ACTIVE' | 'CLOSED') => {
     console.log('📊 Status changed to:', newStatus);
     setFormData(prev => ({ 
@@ -309,31 +299,22 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Symbol *
             </label>
-            <StockSearchInput
+            <input
+              type="text"
               value={formData.symbol}
-              onChange={handleSymbolChange}
-              placeholder="Search for stocks..."
-              className={errors.symbol ? 'border-red-500' : ''}
+              onChange={(e) => handleInputChange('symbol', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.symbol ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="AAPL"
+              maxLength={10}
+              required
               disabled={isSubmitting}
             />
             {errors.symbol && (
               <div className="mt-1 flex items-center space-x-1">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 <p className="text-sm text-red-600">{errors.symbol}</p>
-              </div>
-            )}
-            
-            {/* Current Market Price */}
-            {showCMP && formData.symbol && (
-              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Current Market Price:</span>
-                  <CMPDisplay 
-                    symbol={formData.symbol} 
-                    showChange={true}
-                    className="text-right"
-                  />
-                </div>
               </div>
             )}
           </div>
@@ -527,12 +508,12 @@ export default function TradeModal({ isOpen, onClose, onSave, trade }: TradeModa
                     return (
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">
-                          {quantity} × (${exitPrice} - ${entryPrice})
+                          {quantity} × (₹{exitPrice} - ₹{entryPrice})
                         </span>
                         <span className={`text-sm font-semibold ${
                           pnl >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          ${pnl.toFixed(2)} ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
+                          ₹{pnl.toFixed(2)} ({pnlPercentage >= 0 ? '+' : ''}{pnlPercentage.toFixed(2)}%)
                         </span>
                       </div>
                     );

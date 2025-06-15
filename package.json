@@ -6,7 +6,7 @@
   "description": "A comprehensive trading journal application for tracking trades and focus stocks",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

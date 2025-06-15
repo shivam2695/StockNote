@@ -260,7 +260,6 @@ function App() {
                   onEditTrade={handleEditTrade}
                   onDeleteTrade={deleteTrade}
                   onUpdateTrade={updateTrade}
-                  showFilters={true}
                 />
               </div>
             </div>

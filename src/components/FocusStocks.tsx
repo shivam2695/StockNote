@@ -3,7 +3,7 @@ import { FocusStock } from '../types/FocusStock';
 import FocusStocksTable from './FocusStocksTable';
 import FocusStockModal from './FocusStockModal';
 import { FocusStockTag } from './FocusStockTags';
-import { Target, PlusCircle, TrendingUp, Eye, AlertCircle, Filter, SortAsc } from 'lucide-react';
+import { Target, PlusCircle, TrendingUp, Eye, AlertCircle } from 'lucide-react';
 
 interface FocusStocksProps {
   stocks: FocusStock[];
@@ -25,9 +25,6 @@ export default function FocusStocks({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<FocusStock | undefined>();
   const [error, setError] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'taken'>('all');
-  const [sortBy, setSortBy] = useState<'date' | 'symbol' | 'return'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const handleEditStock = (stock: FocusStock) => {
     setEditingStock(stock);
@@ -56,43 +53,6 @@ export default function FocusStocks({
     setError('');
   };
 
-  // Filter and sort stocks
-  const getFilteredAndSortedStocks = () => {
-    let filtered = stocks;
-
-    // Apply status filter
-    if (statusFilter === 'pending') {
-      filtered = filtered.filter(stock => !stock.tradeTaken);
-    } else if (statusFilter === 'taken') {
-      filtered = filtered.filter(stock => stock.tradeTaken);
-    }
-
-    // Apply sorting
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case 'symbol':
-          comparison = a.symbol.localeCompare(b.symbol);
-          break;
-        case 'return':
-          const returnA = ((a.targetPrice - a.currentPrice) / a.currentPrice) * 100;
-          const returnB = ((b.targetPrice - b.currentPrice) / b.currentPrice) * 100;
-          comparison = returnA - returnB;
-          break;
-        case 'date':
-        default:
-          comparison = new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime();
-          break;
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return sorted;
-  };
-
-  const filteredStocks = getFilteredAndSortedStocks();
   const pendingStocks = stocks.filter(stock => !stock.tradeTaken);
   const takenStocks = stocks.filter(stock => stock.tradeTaken);
 
@@ -221,58 +181,52 @@ export default function FocusStocks({
         </div>
       </div>
 
-      {/* Filters and Sorting */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-xl font-bold text-gray-900">All Focus Stocks</h2>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Status Filter */}
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'taken')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="taken">Taken</option>
-              </select>
-            </div>
-
-            {/* Sort Options */}
-            <div className="flex items-center space-x-2">
-              <SortAsc className="w-4 h-4 text-gray-500" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'date' | 'symbol' | 'return')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              >
-                <option value="date">Sort by Date</option>
-                <option value="symbol">Sort by Symbol</option>
-                <option value="return">Sort by Return</option>
-              </select>
-              
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-              >
-                {sortOrder === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {filteredStocks.length > 0 ? (
+      {/* Pending Stocks */}
+      {pendingStocks.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+            <Target className="w-6 h-6 text-orange-500" />
+            <span>Pending Opportunities</span>
+          </h2>
           <FocusStocksTable
-            stocks={filteredStocks}
+            stocks={pendingStocks}
             onEditStock={handleEditStock}
             onDeleteStock={onDeleteStock}
             onMarkTradeTaken={onMarkTradeTaken}
             onUpdateStockTag={onUpdateStockTag}
           />
-        ) : stocks.length === 0 ? (
+        </div>
+      )}
+
+      {/* Taken Trades */}
+      {takenStocks.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+            <TrendingUp className="w-6 h-6 text-green-500" />
+            <span>Trades Taken</span>
+          </h2>
+          <FocusStocksTable
+            stocks={takenStocks}
+            onEditStock={handleEditStock}
+            onDeleteStock={onDeleteStock}
+            onMarkTradeTaken={onMarkTradeTaken}
+            onUpdateStockTag={onUpdateStockTag}
+          />
+        </div>
+      )}
+
+      {/* All Stocks */}
+      <div className="bg-white rounded-xl shadow-lg p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">All Focus Stocks</h2>
+        {stocks.length > 0 ? (
+          <FocusStocksTable
+            stocks={stocks}
+            onEditStock={handleEditStock}
+            onDeleteStock={onDeleteStock}
+            onMarkTradeTaken={onMarkTradeTaken}
+            onUpdateStockTag={onUpdateStockTag}
+          />
+        ) : (
           <div className="text-center py-12">
             <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No focus stocks yet</h3>
@@ -282,21 +236,6 @@ export default function FocusStocks({
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Add Your First Stock
-            </button>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Target className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-500">No stocks match the current filters</p>
-            <button
-              onClick={() => {
-                setStatusFilter('all');
-                setSortBy('date');
-                setSortOrder('desc');
-              }}
-              className="text-blue-600 hover:text-blue-500 text-sm font-medium mt-2"
-            >
-              Clear filters
             </button>
           </div>
         )}

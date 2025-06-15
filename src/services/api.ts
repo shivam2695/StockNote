@@ -49,7 +49,7 @@ class ApiService {
     return data;
   }
 
-  async makeRequest(url: string, options: RequestInit = {}) {
+  private async makeRequest(url: string, options: RequestInit = {}) {
     try {
       const headers = this.getAuthHeaders();
       
@@ -64,10 +64,6 @@ class ApiService {
         });
       }
       
-      // Log API URL being used for debugging
-      console.log('🔗 API Base URL:', API_BASE_URL);
-      console.log('🌐 Full request URL:', `${API_BASE_URL}${url}`);
-      
       const response = await fetch(`${API_BASE_URL}${url}`, {
         ...options,
         headers: {
@@ -81,7 +77,6 @@ class ApiService {
       return await this.handleResponse(response);
     } catch (error) {
       console.error(`💥 API Request failed: ${url}`, error);
-      console.error('🔗 API Base URL used:', API_BASE_URL);
       
       // Handle network errors more gracefully
       if (error instanceof Error) {
@@ -89,7 +84,7 @@ class ApiService {
           throw new Error('Request timed out. Please check your internet connection.');
         }
         if (error.message.includes('Failed to fetch')) {
-          throw new Error(`Unable to connect to server at ${API_BASE_URL}. Please check your internet connection or try again later.`);
+          throw new Error('Unable to connect to server. Please check your internet connection or try again later.');
         }
       }
       
@@ -576,22 +571,6 @@ class ApiService {
 
   async getDashboardData() {
     return this.makeRequest('/users/dashboard');
-  }
-
-  // Market Data
-  async getQuote(symbol: string) {
-    return this.makeRequest(`/market/quote/${symbol}`);
-  }
-
-  async getMultipleQuotes(symbols: string[]) {
-    return this.makeRequest('/market/quotes', {
-      method: 'POST',
-      body: JSON.stringify({ symbols })
-    });
-  }
-
-  async searchSymbols(query: string) {
-    return this.makeRequest(`/market/search/${encodeURIComponent(query)}`);
   }
 
   // Health Check - Updated with better error handling

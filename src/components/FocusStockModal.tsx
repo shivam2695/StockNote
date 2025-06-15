@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FocusStock } from '../types/FocusStock';
 import { X, Target, AlertCircle } from 'lucide-react';
-import StockSearchInput from './StockSearchInput';
-import CMPDisplay from './CMPDisplay';
 
 interface FocusStockModalProps {
   isOpen: boolean;
@@ -20,13 +18,11 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
     dateAdded: '',
     tradeTaken: false,
     tradeDate: '',
-    notes: '',
-    tag: '' as 'worked' | 'missed' | 'failed' | 'watch' | ''
+    notes: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCMP, setShowCMP] = useState(false);
 
   useEffect(() => {
     if (stock) {
@@ -38,10 +34,8 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         dateAdded: stock.dateAdded,
         tradeTaken: stock.tradeTaken,
         tradeDate: stock.tradeDate || '',
-        notes: stock.notes || '',
-        tag: stock.tag || ''
+        notes: stock.notes || ''
       });
-      setShowCMP(true);
     } else {
       setFormData({
         symbol: '',
@@ -51,10 +45,8 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         dateAdded: new Date().toISOString().split('T')[0],
         tradeTaken: false,
         tradeDate: '',
-        notes: '',
-        tag: ''
+        notes: ''
       });
-      setShowCMP(false);
     }
     setErrors({});
   }, [stock, isOpen]);
@@ -151,8 +143,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         dateAdded: formData.dateAdded,
         tradeTaken: formData.tradeTaken,
         tradeDate: formData.tradeDate || undefined,
-        notes: formData.notes.trim() || undefined,
-        tag: formData.tag || undefined
+        notes: formData.notes.trim() || undefined
       };
 
       await onSave(stockData);
@@ -171,19 +162,6 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
-
-  const handleSymbolChange = (symbol: string) => {
-    handleInputChange('symbol', symbol);
-    setShowCMP(symbol.trim().length > 0);
-  };
-
-  const tagOptions = [
-    { value: '', label: 'No Tag', color: 'bg-gray-100 text-gray-800' },
-    { value: 'worked', label: 'Worked', color: 'bg-green-100 text-green-800' },
-    { value: 'missed', label: 'Missed', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'failed', label: 'Failed', color: 'bg-red-100 text-red-800' },
-    { value: 'watch', label: 'Watch', color: 'bg-blue-100 text-blue-800' }
-  ];
 
   if (!isOpen) return null;
 
@@ -208,11 +186,16 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Symbol *
             </label>
-            <StockSearchInput
+            <input
+              type="text"
               value={formData.symbol}
-              onChange={handleSymbolChange}
-              placeholder="Search for stocks..."
-              className={errors.symbol ? 'border-red-500' : ''}
+              onChange={(e) => handleInputChange('symbol', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                errors.symbol ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="RELIANCE"
+              maxLength={20}
+              required
               disabled={isSubmitting}
             />
             {errors.symbol && (
@@ -221,26 +204,12 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
                 <p className="text-sm text-red-600">{errors.symbol}</p>
               </div>
             )}
-            
-            {/* Current Market Price */}
-            {showCMP && formData.symbol && (
-              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Current Market Price:</span>
-                  <CMPDisplay 
-                    symbol={formData.symbol} 
-                    showChange={true}
-                    className="text-right"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Price ($) *
+                Current Price (₹) *
               </label>
               <input
                 type="number"
@@ -263,7 +232,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Price ($) *
+                Target Price (₹) *
               </label>
               <input
                 type="number"
@@ -312,29 +281,6 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
               <p className="text-xs text-gray-500 ml-auto">
                 {formData.reason.length}/200
               </p>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tag
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {tagOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleInputChange('tag', option.value)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    formData.tag === option.value
-                      ? `${option.color} border-current`
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {option.label}
-                </button>
-              ))}
             </div>
           </div>
 
