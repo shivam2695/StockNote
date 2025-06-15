@@ -62,16 +62,43 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database connection
+// Database connection with fallback and better error handling
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stocknote', {
+    // Use environment variable or fallback to a demo MongoDB Atlas connection
+    const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://demo:demo123@cluster0.mongodb.net/stocknote?retryWrites=true&w=majority';
+    
+    const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
+    
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ MongoDB connection error:', error.message);
+    
+    // Provide helpful error messages
+    if (error.message.includes('ECONNREFUSED')) {
+      console.log('💡 MongoDB connection refused. This could mean:');
+      console.log('   1. MongoDB is not running locally');
+      console.log('   2. Wrong connection string in MONGODB_URI');
+      console.log('   3. Network connectivity issues');
+      console.log('');
+      console.log('🔧 To fix this:');
+      console.log('   - For local MongoDB: Start MongoDB service');
+      console.log('   - For MongoDB Atlas: Check your connection string');
+      console.log('   - Update MONGODB_URI in your .env file');
+    }
+    
+    // In development, continue without database for frontend testing
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('⚠️  Running in development mode without database connection');
+      console.log('   Some API endpoints may not work properly');
+      return;
+    }
+    
     process.exit(1);
   }
 };
@@ -100,6 +127,10 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     version: '2.0.0',
+    database: {
+      connected: mongoose.connection.readyState === 1,
+      state: mongoose.connection.readyState
+    },
     email: {
       configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
