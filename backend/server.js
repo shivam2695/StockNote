@@ -77,20 +77,106 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database connection
+// Database connection with proper standalone configuration
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stocknote', {
+    console.log('🔗 Attempting MongoDB connection...');
+    console.log('📍 MongoDB URI:', process.env.MONGODB_URI ? 'Set' : 'Not set');
+    
+    // Determine MongoDB URI
+    const mongoURI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/stocknote';
+    console.log('🔗 Using MongoDB URI pattern:', mongoURI.replace(/\/\/.*@/, '//***:***@'));
+    
+    // Connection options for standalone MongoDB (no replica set)
+    const connectionOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      // Remove replica set specific options
+      serverSelectionTimeoutMS: 10000, // 10 seconds
+      socketTimeoutMS: 45000, // 45 seconds
+      family: 4, // Use IPv4, skip trying IPv6
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      minPoolSize: 5, // Maintain a minimum of 5 socket connections
+      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+      bufferMaxEntries: 0, // Disable mongoose buffering
+      bufferCommands: false, // Disable mongoose buffering
+      // Explicitly disable replica set options
+      replicaSet: undefined,
+      readPreference: 'primary'
+    };
+
+    console.log('⚙️ Connection options:', {
+      serverSelectionTimeoutMS: connectionOptions.serverSelectionTimeoutMS,
+      socketTimeoutMS: connectionOptions.socketTimeoutMS,
+      maxPoolSize: connectionOptions.maxPoolSize,
+      replicaSet: connectionOptions.replicaSet
     });
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+
+    const conn = await mongoose.connect(mongoURI, connectionOptions);
+    
+    console.log('✅ MongoDB Connected Successfully!');
+    console.log('📊 Connection Details:');
+    console.log('- Host:', conn.connection.host);
+    console.log('- Port:', conn.connection.port);
+    console.log('- Database:', conn.connection.name);
+    console.log('- Ready State:', conn.connection.readyState);
+    console.log('- Connection ID:', conn.connection.id);
+    
+    // Log connection state details
+    const adminDb = conn.connection.db.admin();
+    try {
+      const serverStatus = await adminDb.serverStatus();
+      console.log('🔍 Server Info:');
+      console.log('- Version:', serverStatus.version);
+      console.log('- Uptime:', Math.floor(serverStatus.uptime / 60), 'minutes');
+      console.log('- Connections:', serverStatus.connections);
+    } catch (statusError) {
+      console.log('ℹ️ Could not retrieve server status (normal for some MongoDB setups)');
+    }
+
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ MongoDB Connection Error:');
+    console.error('- Error Name:', error.name);
+    console.error('- Error Message:', error.message);
+    
+    if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+      console.error('🔧 Connection Issue: Cannot reach MongoDB server');
+      console.error('   - Check if MongoDB is running');
+      console.error('   - Verify the connection string');
+      console.error('   - Check network connectivity');
+    } else if (error.message.includes('Authentication failed')) {
+      console.error('🔐 Authentication Issue: Invalid credentials');
+      console.error('   - Check username and password in connection string');
+      console.error('   - Verify database user permissions');
+    } else if (error.message.includes('replica set')) {
+      console.error('🔄 Replica Set Issue: Using standalone connection');
+      console.error('   - Remove replicaSet parameter from connection string');
+      console.error('   - Use standalone MongoDB URI format');
+    }
+    
+    console.error('💡 Suggested MongoDB URI formats:');
+    console.error('   - Local: mongodb://localhost:27017/stocknote');
+    console.error('   - Atlas: mongodb+srv://username:password@cluster.mongodb.net/stocknote');
+    console.error('   - Remote: mongodb://username:password@host:port/stocknote');
+    
     process.exit(1);
   }
 };
 
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('🟢 Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('🔴 Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🟡 Mongoose disconnected from MongoDB');
+});
+
+// Connect to database
 connectDB();
 
 // Test email configuration on startup
@@ -125,6 +211,12 @@ app.get('/health', (req, res) => {
       requestOrigin: origin,
       allowedOrigins: corsOptions.origin,
       corsEnabled: true
+    },
+    database: {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      host: mongoose.connection.host,
+      name: mongoose.connection.name,
+      readyState: mongoose.connection.readyState
     },
     email: {
       configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
