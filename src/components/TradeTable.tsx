@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trade } from '../types/Trade';
-import { TrendingUp, TrendingDown, Circle, CheckCircle2, Edit, Trash2, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Circle, CheckCircle2, Edit, Trash2, Target, Filter, SortAsc } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import MarkAsClosedModal from './MarkAsClosedModal';
 
@@ -9,12 +9,22 @@ interface TradeTableProps {
   onEditTrade: (trade: Trade) => void;
   onDeleteTrade: (tradeId: string) => void;
   onUpdateTrade?: (tradeId: string, tradeData: Omit<Trade, 'id'>) => Promise<void>;
+  showFilters?: boolean;
 }
 
-export default function TradeTable({ trades, onEditTrade, onDeleteTrade, onUpdateTrade }: TradeTableProps) {
+export default function TradeTable({ 
+  trades, 
+  onEditTrade, 
+  onDeleteTrade, 
+  onUpdateTrade,
+  showFilters = false 
+}: TradeTableProps) {
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; trade?: Trade }>({ isOpen: false });
   const [markAsClosed, setMarkAsClosed] = useState<{ isOpen: boolean; trade?: Trade }>({ isOpen: false });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'symbol' | 'status'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -41,6 +51,46 @@ export default function TradeTable({ trades, onEditTrade, onDeleteTrade, onUpdat
     if (returnValue < 0) return 'text-red-600';
     return 'text-gray-600';
   };
+
+  const getStockLogo = (symbol: string) => {
+    return symbol.charAt(0).toUpperCase();
+  };
+
+  // Filter and sort trades
+  const getFilteredAndSortedTrades = () => {
+    let filtered = trades;
+
+    // Apply status filter
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(trade => trade.status === 'ACTIVE');
+    } else if (statusFilter === 'closed') {
+      filtered = filtered.filter(trade => trade.status === 'CLOSED');
+    }
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortBy) {
+        case 'symbol':
+          comparison = a.symbol.localeCompare(b.symbol);
+          break;
+        case 'status':
+          comparison = a.status.localeCompare(b.status);
+          break;
+        case 'date':
+        default:
+          comparison = new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime();
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  };
+
+  const displayTrades = showFilters ? getFilteredAndSortedTrades() : trades;
 
   const handleDeleteClick = (trade: Trade) => {
     setDeleteConfirm({ isOpen: true, trade });
@@ -81,6 +131,52 @@ export default function TradeTable({ trades, onEditTrade, onDeleteTrade, onUpdat
   return (
     <>
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* Filters and Sorting */}
+        {showFilters && (
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h3 className="text-lg font-semibold text-gray-900">Trading Journal</h3>
+              
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Status Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'closed')}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+
+                {/* Sort Options */}
+                <div className="flex items-center space-x-2">
+                  <SortAsc className="w-4 h-4 text-gray-500" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'date' | 'symbol' | 'status')}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="date">Sort by Date</option>
+                    <option value="symbol">Sort by Symbol</option>
+                    <option value="status">Sort by Status</option>
+                  </select>
+                  
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -97,7 +193,7 @@ export default function TradeTable({ trades, onEditTrade, onDeleteTrade, onUpdat
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {trades.map((trade) => {
+              {displayTrades.map((trade) => {
                 const returnValue = calculateReturn(trade);
                 return (
                   <tr key={trade.id} className="hover:bg-gray-50 transition-colors">
@@ -117,7 +213,12 @@ export default function TradeTable({ trades, onEditTrade, onDeleteTrade, onUpdat
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <span className="font-semibold text-gray-900">{trade.symbol}</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">{getStockLogo(trade.symbol)}</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">{trade.symbol}</span>
+                      </div>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-1">

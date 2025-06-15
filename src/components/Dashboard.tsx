@@ -4,6 +4,8 @@ import { FocusStock } from '../types/FocusStock';
 import StatsCard from './StatsCard';
 import TradeTable from './TradeTable';
 import TradeModal from './TradeModal';
+import MonthFilter from './MonthFilter';
+import MarkAsClosedModal from './MarkAsClosedModal';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -43,6 +45,9 @@ export default function Dashboard({
   const [editingTrade, setEditingTrade] = useState<Trade | undefined>();
   const [selectedPeriod, setSelectedPeriod] = useState('7d');
   const [error, setError] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [markAsClosed, setMarkAsClosed] = useState<{ isOpen: boolean; trade?: Trade }>({ isOpen: false });
 
   const handleEditTrade = (trade: Trade) => {
     setEditingTrade(trade);
@@ -71,6 +76,24 @@ export default function Dashboard({
     setError('');
   };
 
+  const handleMarkAsClosedClick = (trade: Trade) => {
+    setMarkAsClosed({ isOpen: true, trade });
+  };
+
+  const handleMarkAsClosedSave = async (exitPrice: number, exitDate: string) => {
+    if (!markAsClosed.trade) return;
+
+    const updatedTrade: Omit<Trade, 'id'> = {
+      ...markAsClosed.trade,
+      status: 'CLOSED',
+      exitPrice,
+      exitDate
+    };
+
+    await onEditTrade(markAsClosed.trade.id, updatedTrade);
+    setMarkAsClosed({ isOpen: false });
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -83,6 +106,42 @@ export default function Dashboard({
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
+
+  const getStockLogo = (symbol: string) => {
+    return symbol.charAt(0).toUpperCase();
+  };
+
+  // Calculate filtered monthly return based on selected month/year
+  const getFilteredMonthlyReturn = () => {
+    if (selectedMonth) {
+      const monthTrades = trades.filter(trade => {
+        if (trade.status !== 'CLOSED' || !trade.exitDate) return false;
+        const exitDate = new Date(trade.exitDate);
+        const tradeMonth = exitDate.toLocaleDateString('en-US', { month: 'long' });
+        return tradeMonth === selectedMonth && exitDate.getFullYear() === selectedYear;
+      });
+      
+      return monthTrades.reduce((sum, trade) => {
+        return sum + ((trade.exitPrice! - trade.entryPrice) * trade.quantity);
+      }, 0);
+    }
+    
+    // If no specific month selected, show current month
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const monthTrades = trades.filter(trade => {
+      if (trade.status !== 'CLOSED' || !trade.exitDate) return false;
+      const exitDate = new Date(trade.exitDate);
+      return exitDate.getMonth() === currentMonth && exitDate.getFullYear() === currentYear;
+    });
+    
+    return monthTrades.reduce((sum, trade) => {
+      return sum + ((trade.exitPrice! - trade.entryPrice) * trade.quantity);
+    }, 0);
+  };
+
+  const filteredMonthlyReturn = getFilteredMonthlyReturn();
 
   // Calculate additional metrics
   const winRate = stats.closedTrades > 0 
@@ -133,6 +192,12 @@ export default function Dashboard({
             <p className="text-gray-600 mt-1">Welcome back! Here's your trading overview</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
+            <MonthFilter
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onMonthChange={setSelectedMonth}
+              onYearChange={setSelectedYear}
+            />
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -204,13 +269,13 @@ export default function Dashboard({
             trendValue={`${winRate.toFixed(1)}%`}
           />
           <StatsCard
-            title="Monthly P&L"
-            value={formatCurrency(stats.monthlyReturn)}
-            subtitle={new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            title={selectedMonth ? `${selectedMonth} P&L` : "Monthly P&L"}
+            value={formatCurrency(filteredMonthlyReturn)}
+            subtitle={selectedMonth ? `${selectedMonth} ${selectedYear}` : new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             icon={Activity}
-            gradient={stats.monthlyReturn >= 0 ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-orange-500 to-orange-600"}
-            trend={stats.monthlyReturn >= 0 ? 'up' : 'down'}
-            trendValue={formatCurrency(Math.abs(stats.monthlyReturn))}
+            gradient={filteredMonthlyReturn >= 0 ? "bg-gradient-to-br from-emerald-500 to-emerald-600" : "bg-gradient-to-br from-orange-500 to-orange-600"}
+            trend={filteredMonthlyReturn >= 0 ? 'up' : 'down'}
+            trendValue={formatCurrency(Math.abs(filteredMonthlyReturn))}
           />
         </div>
 
@@ -266,7 +331,12 @@ export default function Dashboard({
                     }`}>
                       {index + 1}
                     </div>
-                    <span className="font-semibold text-gray-900">{stock.symbol}</span>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">{getStockLogo(stock.symbol)}</span>
+                      </div>
+                      <span className="font-semibold text-gray-900">{stock.symbol}</span>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-1">
                     {stock.return >= 0 ? (
@@ -309,6 +379,9 @@ export default function Dashboard({
                   <div key={stock.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">{getStockLogo(stock.symbol)}</span>
+                        </div>
                         {stock.tradeTaken ? (
                           <CheckCircle2 className="w-5 h-5 text-green-500" />
                         ) : (
@@ -356,6 +429,9 @@ export default function Dashboard({
                 return (
                   <div key={trade.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">{getStockLogo(trade.symbol)}</span>
+                      </div>
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         trade.type === 'BUY' ? 'bg-green-100' : 'bg-red-100'
                       }`}>
@@ -377,8 +453,15 @@ export default function Dashboard({
                         trade.status === 'ACTIVE' ? 'text-blue-600' : 
                         returnValue >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {trade.status === 'ACTIVE' ? 'Active' : formatCurrency(returnValue)}
+                        {trade.status === 'ACTIVE' ? 'Active' : 'Realised'}
                       </div>
+                      {trade.status === 'CLOSED' && (
+                        <div className={`text-xs font-medium ${
+                          returnValue >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(returnValue)}
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500">
                         {new Date(trade.entryDate).toLocaleDateString()}
                       </div>
@@ -413,6 +496,7 @@ export default function Dashboard({
                 trades={trades.slice(-10)}
                 onEditTrade={handleEditTrade}
                 onDeleteTrade={onDeleteTrade}
+                onUpdateTrade={onEditTrade}
               />
             </div>
           ) : (
@@ -438,6 +522,19 @@ export default function Dashboard({
         onSave={handleSaveTrade}
         trade={editingTrade}
       />
+
+      {/* Mark as Closed Modal */}
+      {markAsClosed.trade && (
+        <MarkAsClosedModal
+          isOpen={markAsClosed.isOpen}
+          onClose={() => setMarkAsClosed({ isOpen: false })}
+          onSave={handleMarkAsClosedSave}
+          stockSymbol={markAsClosed.trade.symbol}
+          entryPrice={markAsClosed.trade.entryPrice}
+          entryDate={markAsClosed.trade.entryDate}
+          quantity={markAsClosed.trade.quantity}
+        />
+      )}
     </div>
   );
 }

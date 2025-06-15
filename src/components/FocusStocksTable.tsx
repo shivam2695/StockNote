@@ -49,6 +49,10 @@ export default function FocusStocksTable({
     return 'text-gray-600';
   };
 
+  const getStockLogo = (symbol: string) => {
+    return symbol.charAt(0).toUpperCase();
+  };
+
   const handleTradeTakenToggle = (stock: FocusStock) => {
     if (!stock.tradeTaken) {
       const tradeDate = new Date().toISOString().split('T')[0];
@@ -134,7 +138,9 @@ export default function FocusStocksTable({
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-2">
-                        <Target className="w-4 h-4 text-blue-500" />
+                        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-bold text-sm">{getStockLogo(stock.symbol)}</span>
+                        </div>
                         <span className="font-semibold text-gray-900">{stock.symbol}</span>
                       </div>
                     </td>

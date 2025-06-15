@@ -10,6 +10,13 @@ export default function HealthCheck() {
   const [isVisible, setIsVisible] = useState(true);
   const [backendUrl, setBackendUrl] = useState('');
 
+  // Check if we should show the health check based on domain
+  const shouldShowHealthCheck = () => {
+    const hostname = window.location.hostname;
+    // Only show on netlify.app domain, hide on stocknote.in
+    return hostname.includes('netlify.app');
+  };
+
   const checkHealth = async () => {
     try {
       setStatus('loading');
@@ -40,6 +47,12 @@ export default function HealthCheck() {
   };
 
   useEffect(() => {
+    // Don't show health check on stocknote.in domain
+    if (!shouldShowHealthCheck()) {
+      setIsVisible(false);
+      return;
+    }
+
     // Set the backend URL for display
     const apiUrl = import.meta.env.VITE_API_URL || 'https://stocknote-backend.onrender.com/api';
     setBackendUrl(apiUrl.replace('/api', ''));
@@ -65,6 +78,11 @@ export default function HealthCheck() {
       return () => clearTimeout(timer);
     }
   }, [status, authStatus]);
+
+  // Don't render if we shouldn't show health check
+  if (!shouldShowHealthCheck()) {
+    return null;
+  }
 
   // Show if there's an error or if manually refreshed
   const shouldShow = isVisible || status === 'error' || status === 'loading';
