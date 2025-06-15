@@ -3,6 +3,7 @@ import { Trade } from '../types/Trade';
 import { TrendingUp, TrendingDown, Circle, CheckCircle2, Edit, Trash2, Target, Filter, SortAsc } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import MarkAsClosedModal from './MarkAsClosedModal';
+import CMPDisplay from './CMPDisplay';
 
 interface TradeTableProps {
   trades: Trade[];
@@ -186,6 +187,7 @@ export default function TradeTable({
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Type</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Quantity</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Entry Price</th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-700">CMP</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Exit Price</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Entry Date</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Return</th>
@@ -236,6 +238,9 @@ export default function TradeTable({
                     </td>
                     <td className="py-4 px-6 text-gray-900">{trade.quantity}</td>
                     <td className="py-4 px-6 text-gray-900">{formatCurrency(trade.entryPrice)}</td>
+                    <td className="py-4 px-6">
+                      <CMPDisplay symbol={trade.symbol} />
+                    </td>
                     <td className="py-4 px-6 text-gray-900">
                       {trade.exitPrice ? formatCurrency(trade.exitPrice) : '-'}
                     </td>

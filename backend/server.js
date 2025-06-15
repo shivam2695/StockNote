@@ -15,6 +15,7 @@ const bookRoutes = require('./routes/books');
 const teamRoutes = require('./routes/teams');
 const teamTradeRoutes = require('./routes/teamTrades');
 const userRoutes = require('./routes/users');
+const marketRoutes = require('./routes/market');
 
 const app = express();
 
@@ -106,6 +107,13 @@ testEmailConfig().then(isValid => {
   }
 });
 
+// Test Finnhub API configuration
+if (process.env.FINNHUB_API_KEY) {
+  console.log('✅ Finnhub API key configured');
+} else {
+  console.log('⚠️  Finnhub API key not found in environment variables');
+}
+
 // Health check endpoint with enhanced CORS debugging
 app.get('/health', (req, res) => {
   const origin = req.get('Origin');
@@ -126,6 +134,9 @@ app.get('/health', (req, res) => {
       configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
       host: process.env.EMAIL_HOST || 'smtp.gmail.com',
       port: process.env.EMAIL_PORT || 587
+    },
+    finnhub: {
+      configured: !!process.env.FINNHUB_API_KEY
     }
   });
 });
@@ -138,6 +149,7 @@ app.use('/api/books', bookRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/team-trades', teamTradeRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/market', marketRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FocusStock } from '../types/FocusStock';
 import { X, Target, AlertCircle } from 'lucide-react';
+import StockSearchInput from './StockSearchInput';
+import CMPDisplay from './CMPDisplay';
 
 interface FocusStockModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCMP, setShowCMP] = useState(false);
 
   useEffect(() => {
     if (stock) {
@@ -38,6 +41,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         notes: stock.notes || '',
         tag: stock.tag || ''
       });
+      setShowCMP(true);
     } else {
       setFormData({
         symbol: '',
@@ -50,6 +54,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
         notes: '',
         tag: ''
       });
+      setShowCMP(false);
     }
     setErrors({});
   }, [stock, isOpen]);
@@ -167,6 +172,11 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
     }
   };
 
+  const handleSymbolChange = (symbol: string) => {
+    handleInputChange('symbol', symbol);
+    setShowCMP(symbol.trim().length > 0);
+  };
+
   const tagOptions = [
     { value: '', label: 'No Tag', color: 'bg-gray-100 text-gray-800' },
     { value: 'worked', label: 'Worked', color: 'bg-green-100 text-green-800' },
@@ -198,16 +208,11 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Symbol *
             </label>
-            <input
-              type="text"
+            <StockSearchInput
               value={formData.symbol}
-              onChange={(e) => handleInputChange('symbol', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.symbol ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="RELIANCE"
-              maxLength={20}
-              required
+              onChange={handleSymbolChange}
+              placeholder="Search for stocks..."
+              className={errors.symbol ? 'border-red-500' : ''}
               disabled={isSubmitting}
             />
             {errors.symbol && (
@@ -216,12 +221,26 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
                 <p className="text-sm text-red-600">{errors.symbol}</p>
               </div>
             )}
+            
+            {/* Current Market Price */}
+            {showCMP && formData.symbol && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Current Market Price:</span>
+                  <CMPDisplay 
+                    symbol={formData.symbol} 
+                    showChange={true}
+                    className="text-right"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Price (₹) *
+                Current Price ($) *
               </label>
               <input
                 type="number"
@@ -244,7 +263,7 @@ export default function FocusStockModal({ isOpen, onClose, onSave, stock }: Focu
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Price (₹) *
+                Target Price ($) *
               </label>
               <input
                 type="number"

@@ -3,6 +3,7 @@ import { FocusStock } from '../types/FocusStock';
 import { Target, TrendingUp, CheckCircle, Circle, Edit, Trash2, Calendar } from 'lucide-react';
 import ConfirmationModal from './ConfirmationModal';
 import FocusStockTags, { FocusStockTag } from './FocusStockTags';
+import CMPDisplay from './CMPDisplay';
 
 interface FocusStocksTableProps {
   stocks: FocusStock[];
@@ -23,11 +24,11 @@ export default function FocusStocksTable({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     }).format(amount);
   };
 
@@ -96,6 +97,7 @@ export default function FocusStocksTable({
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Symbol</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Current Price</th>
+                <th className="text-left py-4 px-6 font-semibold text-gray-700">CMP</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Target Price</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Potential Return</th>
                 <th className="text-left py-4 px-6 font-semibold text-gray-700">Reason</th>
@@ -145,6 +147,9 @@ export default function FocusStocksTable({
                       </div>
                     </td>
                     <td className="py-4 px-6 text-gray-900">{formatCurrency(stock.currentPrice)}</td>
+                    <td className="py-4 px-6">
+                      <CMPDisplay symbol={stock.symbol} />
+                    </td>
                     <td className="py-4 px-6 text-gray-900">{formatCurrency(stock.targetPrice)}</td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-1">

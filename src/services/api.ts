@@ -49,7 +49,7 @@ class ApiService {
     return data;
   }
 
-  private async makeRequest(url: string, options: RequestInit = {}) {
+  async makeRequest(url: string, options: RequestInit = {}) {
     try {
       const headers = this.getAuthHeaders();
       
@@ -576,6 +576,22 @@ class ApiService {
 
   async getDashboardData() {
     return this.makeRequest('/users/dashboard');
+  }
+
+  // Market Data
+  async getQuote(symbol: string) {
+    return this.makeRequest(`/market/quote/${symbol}`);
+  }
+
+  async getMultipleQuotes(symbols: string[]) {
+    return this.makeRequest('/market/quotes', {
+      method: 'POST',
+      body: JSON.stringify({ symbols })
+    });
+  }
+
+  async searchSymbols(query: string) {
+    return this.makeRequest(`/market/search/${encodeURIComponent(query)}`);
   }
 
   // Health Check - Updated with better error handling
